@@ -1,0 +1,5 @@
+botcity-framework-web==1.0.3
+botcity-maestro-sdk
+selenium==4.25.0
+requests
+python-dotenv
