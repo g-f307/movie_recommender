@@ -1,201 +1,219 @@
 # Movie Recommender Bots
 
-Sistema de curadoria cinematográfica automatizada com três bots integrados ao BotCity Maestro. O projeto coleta filmes do TMDB, organiza uma fila de recomendação e disponibiliza sugestões ao usuário por meio de um bot no Telegram.
+> **Propriedade Intelectual:** Este projeto e todo o seu código-fonte, modelos e artefatos são de propriedade da LG Electronics do Brasil Ltda., desenvolvido no âmbito do projeto AX Academy --- Digital Transformation (Convênio N.º 005/2025 --- INOVA / IFAM). Consulte o arquivo LICENSE para mais detalhes.
 
-## Visão geral
+Upgrade do `CineBot, curadoria de filmes` para o `Desafio 02 - Upgrade do Bot Pessoal com ML`. O projeto preserva os três bots originais do Módulo 1 e adiciona uma camada de Machine Learning para recomendar filmes a partir de `3 gêneros ranqueados pelo usuário`, mais filtros de `década` e `popularidade`, como indicado na Seção 8 do enunciado para `Gabriel de Sá`.
 
-A solução foi organizada em três componentes principais:
+## Arquitetura
 
-- `gabriel-scrapper`: coleta filmes e metadados no TMDB e gera uma base local em JSON.
-- `gabriel-curadoria`: lê a base gerada pelo scraper, evita duplicidades e publica os filmes no DataPool do Maestro.
-- `gabriel-telegram`: entrega recomendações ao usuário, consumindo a fila do Maestro ou filtrando a base local.
+O fluxo agora ficou dividido em seis partes:
 
-Fluxo resumido:
+1. `gabriel-scrapper/`
+   Coleta filmes do TMDB com BotCity Web, prioriza sinopses em `pt-BR`, limita excesso de franquias via coleção do TMDB, extrai diretor, gêneros, streaming e gera `data/filmes.json`.
+2. `gabriel-curadoria/`
+   Lê a base coletada e monta uma fila local em `data/fila_curadoria.json`. O envio ao DataPool do Maestro ficou opcional.
+3. `cinebot_ml/dataset.py`
+   Gera o dataset supervisionado `datasets/movie_preferences.csv` a partir do catálogo coletado e dos perfis de preferência.
+4. `cinebot_ml/train.py`
+   Compara `3 algoritmos distintos` com `Pipeline + ColumnTransformer`, aplica validação cruzada por grupos no treino, registra experimentos no MLflow e promove o vencedor para `@production`.
+5. `main.py`
+   Sobe uma API FastAPI com `GET /saude` e `POST /predict`.
+6. `gabriel-telegram/`
+   Recebe `3 gêneros ranqueados`, `década` e `popularidade`, chama o endpoint de ML, obtém um ranking top-5, apresenta uma sugestão por vez, salva feedback por `user_id` e personaliza as próximas recomendações daquele usuário.
 
-1. O scraper consulta a API do TMDB e consolida os resultados em `data/filmes.json`.
-2. A curadoria identifica os filmes ainda não enviados e publica novos registros no DataPool.
-3. O bot do Telegram recomenda filmes diretamente da fila ou por filtros interativos.
-
-## Estrutura do projeto
+## Estrutura
 
 ```text
 .
+├── .dvc/
+├── cinebot_ml/
 ├── data/
-│   ├── curadoria.json
-│   └── filmes.json
+├── datasets/
 ├── gabriel-curadoria/
-│   ├── bot.py
-│   └── requirements.txt
 ├── gabriel-scrapper/
-│   ├── bot.py
-│   ├── requirements.txt
-│   └── resources/
 ├── gabriel-telegram/
-│   ├── bot.py
-│   └── requirements.txt
-└── README.md
+├── dvc.yaml
+├── LICENSE
+├── main.py
+├── README.md
+├── requirements-ml.txt
+└── train_ml.py
 ```
 
-## Pré-requisitos
+## Aplicação de ML escolhida
 
-Antes de executar o projeto, tenha disponível:
+Mapeamento do desafio para este projeto:
 
-- Python 3.10 ou superior
-- `pip`
-- Git
-- conta ativa no BotCity Maestro
-- token de bot do Telegram
-- chave de API do TMDB
-- Chromium ou Google Chrome instalado
-- ChromeDriver compatível com a versão do navegador
+- Aluno: `Gabriel de Sá`
+- Projeto do Módulo 1: `CineBot, curadoria de filmes`
+- Direção sugerida na Tabela 8.2: recomendação content-based sobre `sinopse + gêneros`
+- Entrada do usuário: `3 gêneros ranqueados + década + popularidade`
+- Saída do bot: `top-N de filmes mais aderentes`, ordenados pelo score do modelo
 
-Também é recomendável utilizar um ambiente virtual dedicado ao projeto.
+Para operacionalizar isso no desafio, a camada de ML usa:
+
+- features textuais: sinopse, gêneros do filme e perfil textual das preferências
+- features categóricas: gênero principal do filme, diretor, ranking dos gêneros escolhidos, década desejada e perfil de popularidade
+- features numéricas: ano, nota, votos, duração, quantidade de streamings e aderência às preferências de década e popularidade
+- target supervisionado: afinidade do filme com o perfil ranqueado, com possibilidade de sobrescrita por feedback real do usuário
+
+## Modelos comparados
+
+O script de treino foi preparado para comparar no MLflow:
+
+- `LogisticRegression`
+- `LinearSVC` calibrado
+- `ComplementNB`
+
+O vencedor é escolhido com base em `F1`, `Precision` e `ROC-AUC`, após validação cruzada por grupos (`movie_id`) no conjunto de treino, e depois é confirmado em um holdout final separado. O modelo vencedor é salvo localmente em `artifacts/production_model.joblib` e, quando o MLflow estiver configurado, também pode ser promovido no Registry com alias `@production`.
+
+## Requisitos
+
+Antes de rodar:
+
+- Python `3.10+`
+- BotCity Framework Web
+- token do Telegram
+- chave da API do TMDB
+- Chromium ou Google Chrome
+- ChromeDriver compatível
+- conta no BotCity Maestro apenas se quiser manter o fluxo opcional com DataPool
+
+Dependências:
+
+- bots originais:
+  - `gabriel-scrapper/requirements.txt`
+  - `gabriel-curadoria/requirements.txt`
+  - `gabriel-telegram/requirements.txt`
+- camada de ML:
+  - `requirements-ml.txt`
 
 ## Instalação
-
-### 1. Clonar o repositório
-
-```bash
-git clone https://github.com/g-f307/movie_recommender.git
-cd movie_recommender
-```
-
-### 2. Criar e ativar um ambiente virtual
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-```
-
-### 3. Instalar as dependências
-
-```bash
 pip install -r gabriel-scrapper/requirements.txt
 pip install -r gabriel-curadoria/requirements.txt
 pip install -r gabriel-telegram/requirements.txt
+pip install -r requirements-ml.txt
 ```
 
-## Configuração de credenciais
+## Configuração
 
-O projeto utiliza configuração local via `.env` e credenciais armazenadas no BotCity Maestro.
-
-### Arquivo `.env`
-
-Crie um arquivo `.env` na raiz do projeto:
+Crie um `.env` na raiz:
 
 ```env
 MAESTRO_SERVER=https://SEU_SERVIDOR_MAESTRO
 MAESTRO_LOGIN=SEU_LOGIN
 MAESTRO_KEY=SUA_CHAVE
 TMDB_API_KEY=SUA_TMDB_API_KEY
+TELEGRAM_BOT_TOKEN=SEU_TOKEN_LOCAL_OPCIONAL
+CINEBOT_ML_API_URL=http://127.0.0.1:8000
+DATA_PATH=data/filmes.json
+MOVIES_PER_PROFILE=20
+MAX_MOVIES_PER_COLLECTION=1
+LOCAL_QUEUE_PATH=data/fila_curadoria.json
+CURADORIA_HISTORY_PATH=data/historico_inseridos.json
+USE_DATAPOOL=false
+HEADLESS=true
 ```
 
-Observações:
+Credenciais esperadas no Maestro:
 
-- `TMDB_API_KEY` funciona como fallback local para o scraper.
-- as credenciais do Maestro são necessárias para execução fora do ambiente orquestrado.
+- `gabriel-tmdb` / campo `api_key`
+- `gabriel-telegram` / campo `token`
 
-### Credentials Vault no Maestro
+## Pipeline de dados
 
-Cadastre as credenciais esperadas pelo código atual:
-
-#### TMDB
-
-- credencial: `gabriel-tmdb`
-- campo: `api_key`
-
-#### Telegram
-
-- credencial: `gabriel-telegram`
-- campo: `token`
-
-Se você preferir usar outros nomes, será necessário ajustar o código para refletir os novos identificadores cadastrados no Maestro.
-
-## Configuração no BotCity Maestro
-
-Para executar a solução na plataforma, configure os seguintes recursos.
-
-### 1. Registro dos bots
-
-Cadastre separadamente os bots:
-
-- `gabriel-scrapper`
-- `gabriel-curadoria`
-- `gabriel-telegram`
-
-Cada pacote deve conter, no mínimo:
-
-- `bot.py`
-- `requirements.txt`
-- `resources/`, quando aplicável
-
-### 2. DataPool
-
-O código atual utiliza um DataPool com identificador:
-
-```text
-gabriel-filmes
-```
-
-Esse DataPool é usado pela curadoria para inserir novos filmes e pelo bot do Telegram para consumir a fila de recomendações.
-
-Se o ambiente já possuir um identificador diferente ou se esse nome não puder ser utilizado, altere o valor correspondente no código antes do deploy.
-
-### 3. Parâmetro de execução
-
-Os bots que leem ou gravam o catálogo dependem do parâmetro:
-
-```text
-DATA_PATH
-```
-
-Exemplo:
-
-```text
-data/filmes.json
-```
-
-Ajuste o caminho conforme a estratégia de armazenamento adotada na execução.
-
-### 4. Artifacts
-
-Os bots publicam os seguintes artefatos:
-
-- scraper: `filmes.json`
-- curadoria: `historico_inseridos.json`
-
-## Execução local
-
-### Scraper
-
-Responsável por coletar filmes por perfil e gerar o catálogo local.
+### 1. Coletar catálogo
 
 ```bash
 python gabriel-scrapper/bot.py
 ```
 
-Saída esperada:
+Saída principal:
 
-- criação ou atualização de `data/filmes.json`
-- coleta de título, sinopse, ano, diretor, streaming, nota e poster
+- `data/filmes.json`
 
-### Curadoria
-
-Responsável por ler o catálogo do scraper e publicar os novos filmes no DataPool.
+### 2. Gerar fila de curadoria
 
 ```bash
 python gabriel-curadoria/bot.py
 ```
 
-Saída esperada:
+Saída principal:
 
-- leitura de `data/filmes.json`
-- inserção de novos registros no DataPool
-- atualização de `historico_inseridos.json`
+- `data/fila_curadoria.json`
+- `data/historico_inseridos.json`
 
-### Telegram
+### 3. Gerar dataset versionado
 
-Responsável por recomendar filmes via comandos e filtros interativos.
+```bash
+python3 -m cinebot_ml.dataset
+```
+
+Arquivos gerados:
+
+- `datasets/movie_preferences.csv`
+- `datasets/user_feedback.csv`
+
+O repositório já inclui:
+
+- `dvc.yaml`
+- `datasets/movie_preferences.csv.dvc`
+
+Se o DVC estiver instalado, você pode rastrear novamente o dataset com os comandos usuais do DVC.
+
+### 4. Treinar e promover o modelo
+
+```bash
+python3 train_ml.py
+```
+
+Artefatos esperados:
+
+- `artifacts/production_model.joblib`
+- `artifacts/model_metadata.json`
+- `datasets/reference_features.csv`
+
+Opcionalmente, para visualizar o Tracking:
+
+```bash
+mlflow ui --backend-store-uri sqlite:///mlflow.db
+```
+
+O treino atual inclui:
+
+- comparação de `3` famílias de modelos distintas
+- validação cruzada por grupos com `StratifiedGroupKFold` quando disponível
+- holdout final com `GroupShuffleSplit`
+- seleção de threshold por desempenho médio nas folds
+- persistência das métricas médias e do desvio padrão em `artifacts/model_metadata.json`
+
+## FastAPI
+
+Suba o serviço local:
+
+```bash
+uvicorn main:app --reload
+```
+
+Healthcheck:
+
+```bash
+curl http://127.0.0.1:8000/saude
+```
+
+Predição:
+
+```bash
+curl -X POST http://127.0.0.1:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"ranked_genres":["acao","drama","comedia"],"decade_preference":"moderno","popularity_preference":"joia_escondida","data_path":"data/filmes.json","top_n":5,"user_id":"12345"}'
+```
+
+## Bot do Telegram com ML
 
 ```bash
 python gabriel-telegram/bot.py
@@ -208,57 +226,30 @@ Comandos disponíveis:
 - `/recomendar`
 - `/sugestao`
 
-## Execução no BotCity Maestro
+Fluxo do `/sugestao`:
 
-Ordem recomendada:
+1. o usuário escolhe o gênero favorito
+2. escolhe o segundo gênero
+3. escolhe o terceiro gênero
+4. escolhe a década: `Moderno`, `Anos 2000` ou `Antes dos anos 2000`
+5. escolhe a popularidade: `Popular` ou `Joia escondida`
+6. o bot chama `POST /predict`
+7. o modelo devolve um ranking top-5 e o bot apresenta a primeira sugestão
+8. a primeira interação pós-recomendação mostra apenas `Gostei` ou `Não gostei`
+9. depois do feedback, o bot mostra um menu limpo com `Outra sugestão`, `Sugestão do dia` e `Encerrar`
+10. o feedback é salvo em `datasets/user_feedback.csv` com `user_id`, `timestamp`, década e popularidade da busca
+11. as próximas recomendações do mesmo usuário passam a considerar histórico de curtidas, rejeições, diretores, gêneros e palavras-chave já vistos
 
-1. Registrar os três bots no Maestro.
-2. Configurar as credenciais no Vault.
-3. Criar ou ajustar o DataPool utilizado pelo projeto.
-4. Definir o parâmetro `DATA_PATH`.
-5. Executar o bot `gabriel-scrapper`.
-6. Executar o bot `gabriel-curadoria`.
-7. Executar o bot `gabriel-telegram`.
+Fluxo do `/recomendar`:
 
-## Funcionalidades por bot
+1. o bot consome a fila local gerada pela curadoria
+2. entrega um filme por vez
+3. remove o item consumido de `data/fila_curadoria.json`
 
-### `gabriel-scrapper`
+## Drift com Evidently
 
-- busca filmes por perfis de gênero
-- utiliza a API do TMDB para descoberta e detalhamento
-- consulta provedores de streaming
-- extrai título e sinopse via BotCity Web
-- gera a base consolidada `data/filmes.json`
+Ao processar uma recomendação via API, o projeto tenta comparar os dados atuais com o baseline de treino salvo em `datasets/reference_features.csv`.
 
-### `gabriel-curadoria`
+Relatório esperado:
 
-- carrega a base local criada pelo scraper
-- verifica duplicidade por histórico de inserção
-- cria entradas no DataPool do Maestro
-- mantém o histórico de filmes já enviados
-
-### `gabriel-telegram`
-
-- conecta ao Telegram com token armazenado no Maestro
-- recomenda filmes pendentes da fila
-- oferece sugestão por gênero, época e estilo
-- utiliza o arquivo local como fallback de recomendação
-
-## Tecnologias utilizadas
-
-- Python
-- BotCity Framework Web
-- BotCity Maestro SDK
-- Selenium
-- Requests
-- Python Dotenv
-- PyTelegramBotAPI
-- TMDB API
-- JSON para persistência local
-
-## Observações importantes
-
-- Execute primeiro o scraper para garantir a existência de `data/filmes.json`.
-- Execute a curadoria antes do Telegram se quiser demonstrar o consumo do DataPool.
-- Verifique se o ChromeDriver é compatível com a versão do navegador instalado.
-- Credenciais e identificadores configurados no Maestro devem estar alinhados com os valores utilizados pelo código.
+- `reports/relatorio_drift.html`

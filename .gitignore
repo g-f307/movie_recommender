@@ -22,3 +22,9 @@ env/
 *.zip
 .codex
 data/
+mlruns/
+mlflow.db
+.dvc/cache/
+artifacts/
+reports/
+datasets/*.csv
