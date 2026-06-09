@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pandas
+scikit-learn
+joblib
+mlflow
+dvc
+evidently
+requests
+python-dotenv

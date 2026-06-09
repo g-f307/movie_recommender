@@ -1,0 +1,20 @@
+stages:
+  build_dataset:
+    cmd: python3 -m cinebot_ml.dataset
+    deps:
+      - cinebot_ml/dataset.py
+      - data/filmes.json
+    outs:
+      - datasets/movie_preferences.csv
+  train_model:
+    cmd: python3 train_ml.py
+    deps:
+      - cinebot_ml/train.py
+      - cinebot_ml/modeling.py
+      - cinebot_ml/predictor.py
+      - datasets/movie_preferences.csv
+    outs:
+      - artifacts/model_metadata.json
+      - artifacts/production_model.joblib
+      - datasets/reference_features.csv
+
