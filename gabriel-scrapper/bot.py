@@ -1,30 +1,29 @@
 import json
 import os
 import time
-import requests
 from datetime import datetime
 from pathlib import Path
+
+import requests
 from dotenv import load_dotenv
 
-from botcity.web import WebBot, Browser, By
-from botcity.maestro import BotMaestroSDK, AutomationTaskFinishStatus, DataPoolEntry
+from botcity.maestro import BotMaestroSDK, AutomationTaskFinishStatus
+from botcity.web import Browser, By, WebBot
 from botcity.web.browsers.chrome import default_options
 
 load_dotenv()
 
-# Constantes
-
 TMDB_BASE_URL = "https://www.themoviedb.org"
-TMDB_API_URL  = "https://api.themoviedb.org/3"
+TMDB_API_URL = "https://api.themoviedb.org/3"
 
 PERFIS = {
-    "acao":     {"genero_id": 28,    "genero_nome": "Ação"},
-    "comedia":  {"genero_id": 35,    "genero_nome": "Comédia"},
-    "drama":    {"genero_id": 18,    "genero_nome": "Drama"},
-    "terror":   {"genero_id": 27,    "genero_nome": "Terror"},
-    "scifi":    {"genero_id": 878,   "genero_nome": "Ficção Científica"},
-    "romance":  {"genero_id": 10749, "genero_nome": "Romance"},
-    "suspense": {"genero_id": 53,    "genero_nome": "Suspense"},
+    "acao": {"genero_id": 28, "genero_nome": "Ação"},
+    "comedia": {"genero_id": 35, "genero_nome": "Comédia"},
+    "drama": {"genero_id": 18, "genero_nome": "Drama"},
+    "terror": {"genero_id": 27, "genero_nome": "Terror"},
+    "scifi": {"genero_id": 878, "genero_nome": "Ficção Científica"},
+    "romance": {"genero_id": 10749, "genero_nome": "Romance"},
+    "suspense": {"genero_id": 53, "genero_nome": "Suspense"},
 }
 
 PAISES_PT = {
@@ -43,76 +42,100 @@ PAISES_PT = {
     "Australia": "Austrália",
 }
 
-# API REST 
+GENRE_ID_TO_KEY = {perfil["genero_id"]: chave for chave, perfil in PERFIS.items()}
 
-def buscar_filmes_por_perfil(perfil: dict, api_key: str) -> list:
+
+def parse_bool(value: str | None, default: bool = True) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "sim"}
+
+
+def buscar_filmes_por_perfil(perfil: dict, api_key: str, page: int = 1) -> list:
     params = {
         "api_key": api_key,
         "language": "pt-BR",
         "with_genres": perfil["genero_id"],
         "vote_average.gte": 7.2,
-        "vote_count.gte": 800,
-        "vote_count.lte": 7000,
+        "vote_count.gte": 300,
         "sort_by": "vote_average.desc",
         "without_genres": "16,10751,10770",
         "with_original_language": "en|pt|fr|de|it|es|ja|ko",
-        "with_runtime.gte": 90,
-        "page": 1,
+        "with_runtime.gte": 80,
+        "primary_release_date.lte": datetime.now().date().isoformat(),
+        "page": page,
     }
     try:
-        r = requests.get(f"{TMDB_API_URL}/discover/movie", params=params, timeout=10)
-        r.raise_for_status()
-        return r.json().get("results", [])
-    except requests.RequestException as e:
-        print(f"[scraper] Erro na API: {e}")
+        response = requests.get(f"{TMDB_API_URL}/discover/movie", params=params, timeout=20)
+        response.raise_for_status()
+        return response.json().get("results", [])
+    except requests.RequestException as exc:
+        print(f"[scraper] Erro na API para {perfil['genero_nome']}: {exc}")
         return []
 
 
 def buscar_detalhes_api(filme_id: int, api_key: str) -> dict:
     try:
-        r = requests.get(
+        response = requests.get(
             f"{TMDB_API_URL}/movie/{filme_id}",
-            params={"api_key": api_key, "language": "pt-BR", "append_to_response": "credits"},
-            timeout=10,
+            params={
+                "api_key": api_key,
+                "language": "pt-BR",
+                "append_to_response": "credits,keywords",
+            },
+            timeout=20,
         )
-        return r.json()
-    except Exception:
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException:
         return {}
 
 
 def buscar_streaming(filme_id: int, api_key: str) -> list:
     try:
-        r = requests.get(
+        response = requests.get(
             f"{TMDB_API_URL}/movie/{filme_id}/watch/providers",
             params={"api_key": api_key},
-            timeout=10,
+            timeout=20,
         )
-        br = r.json().get("results", {}).get("BR", {})
-        return [p["provider_name"] for p in br.get("flatrate", [])[:4]]
-    except Exception:
+        response.raise_for_status()
+        providers = response.json().get("results", {}).get("BR", {})
+        return [provider["provider_name"] for provider in providers.get("flatrate", [])[:4]]
+    except requests.RequestException:
         return []
 
 
-# BotCity Web: extrai título e sinopse 
+def inferir_genero_principal(chave_atual: str, detalhes: dict) -> str | None:
+    for genero in detalhes.get("genres", []) or []:
+        genero_id = genero.get("id")
+        if genero_id in GENRE_ID_TO_KEY:
+            return GENRE_ID_TO_KEY[genero_id]
+
+    genero_ids = {genero.get("id") for genero in detalhes.get("genres", []) or []}
+    if PERFIS[chave_atual]["genero_id"] in genero_ids:
+        return chave_atual
+    return None
+
 
 def extrair_com_botcity(bot: WebBot, url: str, filme_api: dict) -> tuple[str, str]:
     try:
         bot.browse(url)
-        time.sleep(3)
+        time.sleep(2)
 
         titulo = filme_api.get("title", "")
+        sinopse = filme_api.get("overview", "")
+
         try:
-            el = bot.find_element("h2.title a, div.title h2 a", By.CSS_SELECTOR)
-            if el:
-                titulo = el.text.strip() or titulo
+            title_element = bot.find_element("h2.title a, div.title h2 a", By.CSS_SELECTOR)
+            if title_element and title_element.text.strip():
+                titulo = title_element.text.strip()
         except Exception:
             pass
 
-        sinopse = filme_api.get("overview", "")
         try:
-            el = bot.find_element("div.overview p", By.CSS_SELECTOR)
-            if el:
-                sinopse = el.text.strip() or sinopse
+            overview_element = bot.find_element("div.overview p", By.CSS_SELECTOR)
+            if overview_element and overview_element.text.strip():
+                sinopse = overview_element.text.strip()
         except Exception:
             pass
 
@@ -120,152 +143,219 @@ def extrair_com_botcity(bot: WebBot, url: str, filme_api: dict) -> tuple[str, st
             sinopse = sinopse[:697] + "..."
 
         return titulo, sinopse
-
-    except Exception as e:
-        print(f"[scraper] Erro BotCity em {url}: {e}")
+    except Exception as exc:
+        print(f"[scraper] Erro BotCity em {url}: {exc}")
         return filme_api.get("title", ""), filme_api.get("overview", "")
 
 
-# Salvar JSON 
-
-def salvar(dados: dict, path: Path):
+def salvar(dados: dict, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(dados, f, ensure_ascii=False, indent=2)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(dados, handle, ensure_ascii=False, indent=2)
     print(f"[scraper] Dados salvos em {path}")
 
 
-# Entry point 
+def criar_bot(headless: bool) -> WebBot:
+    bot = WebBot()
+    bot.headless = headless
+    bot.browser = Browser.CHROME
+    bot.driver_path = os.getenv("CHROMEDRIVER_PATH", "/usr/bin/chromedriver")
+    bot._options = None
 
-def main():
-    load_dotenv()
-    maestro = BotMaestroSDK.from_sys_args()
+    options = default_options(headless=headless, download_folder_path=None, user_data_dir=None)
+    options.binary_location = os.getenv("CHROMIUM_BINARY", "/usr/bin/chromium-browser")
+    bot.options = options
+    bot.start_browser()
+    return bot
 
-    if not maestro.server:
+
+def carregar_maestro() -> BotMaestroSDK | None:
+    precisa_vault = not os.getenv("TMDB_API_KEY")
+    if not precisa_vault:
+        return None
+
+    try:
+        maestro = BotMaestroSDK.from_sys_args()
+        if maestro.server:
+            return maestro
+    except Exception:
+        maestro = BotMaestroSDK()
+
+    if os.getenv("MAESTRO_SERVER"):
         maestro.login(
             server=os.getenv("MAESTRO_SERVER"),
             login=os.getenv("MAESTRO_LOGIN"),
-            key=os.getenv("MAESTRO_KEY")
+            key=os.getenv("MAESTRO_KEY"),
         )
+        return maestro
+    return None
 
-    execution = maestro.get_execution()
-    parameters = execution.parameters
 
-    data_path = parameters.get("DATA_PATH")
-    if not data_path:
-        raise ValueError("Parametro DATA_PATH nao configurado no Maestro")
-    DATA_PATH = Path(data_path)
+def obter_execucao(maestro: BotMaestroSDK | None):
+    if maestro is None:
+        return None
+    try:
+        return maestro.get_execution()
+    except Exception:
+        return None
 
-    print(f"[scraper] Iniciando coleta — {datetime.now()}")
+
+def main() -> None:
+    load_dotenv()
+    maestro = carregar_maestro()
+    execution = obter_execucao(maestro)
+    parameters = execution.parameters if execution else {}
+
+    data_path = parameters.get("DATA_PATH") or os.getenv("DATA_PATH", "data/filmes.json")
+    max_movies = int(parameters.get("MOVIES_PER_PROFILE") or os.getenv("MOVIES_PER_PROFILE", "10"))
+    max_pages = int(parameters.get("MAX_PAGES") or os.getenv("MAX_PAGES", "8"))
+    max_movies_per_collection = int(
+        parameters.get("MAX_MOVIES_PER_COLLECTION") or os.getenv("MAX_MOVIES_PER_COLLECTION", "1")
+    )
+    headless = parse_bool(parameters.get("HEADLESS") or os.getenv("HEADLESS"), default=True)
+    data_output = Path(data_path)
+
+    print(f"[scraper] Iniciando coleta em {datetime.now().isoformat()} | destino={data_output}")
 
     try:
         try:
-            tmdb_key = maestro.get_credential("gabriel-tmdb", "api_key")
+            tmdb_key = maestro.get_credential("gabriel-tmdb", "api_key") if maestro else os.getenv("TMDB_API_KEY")
         except Exception:
             tmdb_key = os.getenv("TMDB_API_KEY")
 
         if not tmdb_key:
-            raise ValueError("TMDB_API_KEY nao configurada")
+            raise ValueError("TMDB_API_KEY não configurada no Vault nem no .env")
 
+        bot = criar_bot(headless=headless)
         todos_filmes = {}
+        ids_globais = set()
+        colecoes_globais = {}
 
-        bot = WebBot()
-        bot.headless = False
-        bot.browser = Browser.CHROME
-        bot.driver_path = "/usr/bin/chromedriver"
-        bot._options = None
-        opts = default_options(headless=False, download_folder_path=None, user_data_dir=None)
-        opts.binary_location = "/usr/bin/chromium-browser"
-        bot.options = opts
-        bot.start_browser()
+        try:
+            for chave, perfil in PERFIS.items():
+                print(f"[scraper] Coletando gênero {perfil['genero_nome']}")
+                page = 1
+                filmes_detalhados = []
+                ids_vistos = set()
 
-        for chave, perfil in PERFIS.items():
-            print(f"\n[scraper] Genero: {perfil['genero_nome']}")
-            filmes_api = buscar_filmes_por_perfil(perfil, tmdb_key)
+                while len(filmes_detalhados) < max_movies and page <= max_pages:
+                    filmes_api = buscar_filmes_por_perfil(perfil, tmdb_key, page=page)
+                    page += 1
 
-            if not filmes_api:
-                todos_filmes[chave] = []
-                continue
+                    if not filmes_api:
+                        continue
 
-            filmes_detalhados = []
-            ids_vistos = set()
+                    for filme_api in filmes_api:
+                        filme_id = filme_api.get("id")
+                        if not filme_id or filme_id in ids_vistos or filme_id in ids_globais:
+                            continue
 
-            for filme_api in filmes_api[:1]:
-                filme_id  = filme_api.get("id")
-                url_filme = f"{TMDB_BASE_URL}/movie/{filme_id}"
+                        detalhes = buscar_detalhes_api(filme_id, tmdb_key)
+                        genero_principal = inferir_genero_principal(chave, detalhes)
+                        if genero_principal != chave:
+                            continue
 
-                if filme_id in ids_vistos:
-                    continue
-                ids_vistos.add(filme_id)
+                        colecao = detalhes.get("belongs_to_collection") or {}
+                        colecao_id = colecao.get("id")
+                        if colecao_id and colecoes_globais.get(colecao_id, 0) >= max_movies_per_collection:
+                            continue
 
-                titulo, sinopse = extrair_com_botcity(bot, url_filme, filme_api)
+                        ids_vistos.add(filme_id)
+                        ids_globais.add(filme_id)
+                        if colecao_id:
+                            colecoes_globais[colecao_id] = colecoes_globais.get(colecao_id, 0) + 1
 
-                detalhes   = buscar_detalhes_api(filme_id, tmdb_key)
-                paises     = detalhes.get("production_countries", [])
-                nac        = ", ".join([PAISES_PT.get(p["name"], p["name"]) for p in paises[:2]]) or "N/A"
-                equipe     = detalhes.get("credits", {}).get("crew", [])
-                diretor    = next((c["name"] for c in equipe if c["job"] == "Director"), "Desconhecido")
-                duracao    = detalhes.get("runtime", 0)
-                streaming  = buscar_streaming(filme_id, tmdb_key)
-                data_str   = filme_api.get("release_date", "")
-                ano        = data_str[:4] if data_str else "N/A"
-                poster     = ""
-                if filme_api.get("poster_path"):
-                    poster = f"https://image.tmdb.org/t/p/w500{filme_api['poster_path']}"
+                        url_filme = f"{TMDB_BASE_URL}/movie/{filme_id}?language=pt-BR"
 
-                filme = {
-                    "id":            filme_id,
-                    "titulo":        titulo,
-                    "sinopse":       sinopse,
-                    "ano":           ano,
-                    "duracao":       duracao,
-                    "diretor":       diretor,
-                    "nacionalidade": nac,
-                    "streaming":     streaming,
-                    "nota":          round(filme_api.get("vote_average", 0.0), 1),
-                    "votos":         filme_api.get("vote_count", 0),
-                    "url":           url_filme,
-                    "poster":        poster,
-                    "perfil":        chave,
-                    "genero":        perfil["genero_nome"],
-                }
+                        titulo_raspado, sinopse_raspada = extrair_com_botcity(bot, url_filme, filme_api)
+                        titulo = detalhes.get("title") or filme_api.get("title") or titulo_raspado
+                        sinopse = detalhes.get("overview") or filme_api.get("overview") or sinopse_raspada
+                        if len(sinopse) > 700:
+                            sinopse = sinopse[:697] + "..."
+                        paises = detalhes.get("production_countries", [])
+                        nacionalidade = ", ".join(PAISES_PT.get(item["name"], item["name"]) for item in paises[:2]) or "N/A"
+                        equipe = detalhes.get("credits", {}).get("crew", [])
+                        diretor = next((crew["name"] for crew in equipe if crew["job"] == "Director"), "Desconhecido")
+                        duracao = detalhes.get("runtime", 0) or 0
+                        streaming = buscar_streaming(filme_id, tmdb_key)
+                        ano = (filme_api.get("release_date") or "")[:4] or "N/A"
+                        generos_secundarios = [genre["name"] for genre in detalhes.get("genres", []) if genre.get("name")]
+                        keywords = [
+                            item["name"]
+                            for item in detalhes.get("keywords", {}).get("keywords", [])[:6]
+                            if item.get("name")
+                        ]
+                        poster = ""
+                        if filme_api.get("poster_path"):
+                            poster = f"https://image.tmdb.org/t/p/w500{filme_api['poster_path']}"
 
-                filmes_detalhados.append(filme)
-                time.sleep(2)
+                        filme = {
+                            "id": filme_id,
+                            "titulo": titulo,
+                            "sinopse": sinopse,
+                            "ano": ano,
+                            "duracao": duracao,
+                            "diretor": diretor,
+                            "nacionalidade": nacionalidade,
+                            "streaming": streaming,
+                            "nota": round(filme_api.get("vote_average", 0.0), 1),
+                            "votos": filme_api.get("vote_count", 0),
+                            "url": url_filme,
+                            "poster": poster,
+                            "perfil": chave,
+                            "genero": perfil["genero_nome"],
+                            "generos_secundarios": generos_secundarios,
+                            "palavras_chave": keywords,
+                            "genero_principal_id": PERFIS[chave]["genero_id"],
+                            "collection_id": colecao_id,
+                            "collection_name": colecao.get("name", ""),
+                        }
+                        filmes_detalhados.append(filme)
 
-            todos_filmes[chave] = filmes_detalhados
-            print(f"[scraper] {len(filmes_detalhados)} filmes para '{chave}'")
-            time.sleep(3)
+                        if len(filmes_detalhados) >= max_movies:
+                            break
 
-        bot.stop_browser()
+                        time.sleep(1.2)
+
+                todos_filmes[chave] = filmes_detalhados
+                print(f"[scraper] {len(filmes_detalhados)} filmes preparados para {chave}")
+                time.sleep(1)
+        finally:
+            bot.stop_browser()
 
         payload = {
             "atualizado_em": datetime.now().isoformat(),
+            "configuracao": {
+                "movies_per_profile": max_movies,
+                "max_movies_per_collection": max_movies_per_collection,
+                "headless": headless,
+            },
             "perfis": todos_filmes,
         }
-        salvar(payload, DATA_PATH)
+        salvar(payload, data_output)
 
-        maestro.post_artifact(
-            task_id=execution.task_id,
-            artifact_name="filmes.json",
-            filepath=str(DATA_PATH),
-        )
-        maestro.finish_task(
-            task_id=execution.task_id,
-            status=AutomationTaskFinishStatus.SUCCESS,
-            message=f"Scraper concluido. {sum(len(v) for v in todos_filmes.values())} filmes coletados.",
-        )
-
-        print(f"[scraper] Coleta finalizada — {datetime.now()}")
-
-    except Exception as e:
-        print(f"[scraper] Erro fatal: {e}")
-        try:
+        if execution and maestro:
+            maestro.post_artifact(
+                task_id=execution.task_id,
+                artifact_name="filmes.json",
+                filepath=str(data_output),
+            )
             maestro.finish_task(
                 task_id=execution.task_id,
-                status=AutomationTaskFinishStatus.FAILED,
-                message=str(e),
+                status=AutomationTaskFinishStatus.SUCCESS,
+                message=f"Scraper concluído. {sum(len(items) for items in todos_filmes.values())} filmes coletados.",
             )
+
+        print(f"[scraper] Coleta finalizada em {datetime.now().isoformat()}")
+    except Exception as exc:
+        print(f"[scraper] Erro fatal: {exc}")
+        try:
+            if execution and maestro:
+                maestro.finish_task(
+                    task_id=execution.task_id,
+                    status=AutomationTaskFinishStatus.FAILED,
+                    message=str(exc),
+                )
         except Exception:
             pass
         raise

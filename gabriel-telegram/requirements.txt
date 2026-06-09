@@ -1,3 +1,4 @@
 botcity-maestro-sdk
 pytelegrambotapi
 python-dotenv
+requests

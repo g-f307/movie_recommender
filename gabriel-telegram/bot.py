@@ -1,65 +1,90 @@
 import json
 import logging
 import os
-import random
+import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
+import requests
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from dotenv import load_dotenv
+from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from botcity.maestro import BotMaestroSDK, AutomationTaskFinishStatus
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from botcity.maestro import AutomationTaskFinishStatus, BotMaestroSDK
+from cinebot_ml.config import (
+    DECADE_LABELS,
+    DEFAULT_DATA_PATH,
+    FEEDBACK_PATH,
+    GENRE_LABELS,
+    POPULARITY_LABELS,
+)
+from cinebot_ml.dataset import append_feedback
 
 load_dotenv()
+
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
 
-DATA_PATH = None
-
-# MAESTRO SDK (GLOBAL)
-try:
-    maestro = BotMaestroSDK.from_sys_args()
-except Exception:
-    maestro = BotMaestroSDK(
-        server=os.getenv("MAESTRO_SERVER"),
-        login=os.getenv("MAESTRO_LOGIN"),
-        key=os.getenv("MAESTRO_KEY")
-    )
-    maestro.login(
-        server=os.getenv("MAESTRO_SERVER"),
-        login=os.getenv("MAESTRO_LOGIN"),
-        key=os.getenv("MAESTRO_KEY")
-    )
-
-# DICIONÁRIOS DO FUNIL 
-GENEROS = {
-    "acao": "Ação", "comedia": "Comédia", "drama": "Drama",
-    "terror": "Terror", "scifi": "Ficção Científica", 
-    "romance": "Romance", "suspense": "Suspense"
-}
-EPOCAS = {
-    "classico": "Clássico (Antes de 2000)", "anos2000": "Anos 2000 (2000-2019)",
-    "lancamento": "Lançamento (2020+)", "qualquer": "Sem preferência"
-}
-ESTILOS = {
-    "lado_b": "Lado B (Joia Escondida)", "aclamado": "Aclamado (Sucesso de Crítica)"
-}
-
+API_BASE_URL = os.getenv("CINEBOT_ML_API_URL", "http://127.0.0.1:8000")
+DATA_PATH = DEFAULT_DATA_PATH
+LOCAL_QUEUE_PATH = Path(os.getenv("LOCAL_QUEUE_PATH", "data/fila_curadoria.json"))
+USE_DATAPOOL = os.getenv("USE_DATAPOOL", "false").strip().lower() in {"1", "true", "yes", "sim"}
 estado_usuarios = {}
 
-# HELPERS
-def formatar_mensagem_tecnica(filme: dict, origem: str) -> str:
+
+def carregar_maestro() -> BotMaestroSDK | None:
+    precisa_vault = USE_DATAPOOL or not os.getenv("TELEGRAM_BOT_TOKEN")
+    if not precisa_vault:
+        return None
+
     try:
-        nota = float(filme.get('nota', 0))
+        maestro = BotMaestroSDK.from_sys_args()
+        if maestro.server:
+            return maestro
+    except Exception:
+        maestro = BotMaestroSDK()
+
+    if os.getenv("MAESTRO_SERVER"):
+        maestro.login(
+            server=os.getenv("MAESTRO_SERVER"),
+            login=os.getenv("MAESTRO_LOGIN"),
+            key=os.getenv("MAESTRO_KEY"),
+        )
+        return maestro
+    return None
+
+
+def obter_execucao(maestro: BotMaestroSDK | None):
+    if maestro is None:
+        return None
+    try:
+        return maestro.get_execution()
+    except Exception:
+        return None
+
+
+maestro = carregar_maestro()
+
+GENEROS = GENRE_LABELS
+DECADAS = DECADE_LABELS
+POPULARIDADES = POPULARITY_LABELS
+
+
+def formatar_mensagem_curadoria(filme: dict, origem: str) -> str:
+    try:
+        nota = float(filme.get("nota", 0))
     except (ValueError, TypeError):
         nota = 0.0
 
     linhas = [
-        f"RESULTADO DA CURADORIA ({origem})",
-        "-----------------------------------",
+        "SUGESTÃO DO DIA",
+        "----------------",
         f"Título: {filme.get('titulo', 'Desconhecido')} ({filme.get('ano', 'N/A')})",
         f"Direção: {filme.get('diretor', 'Desconhecido')}",
         f"Duração: {filme.get('duracao', 0)} min",
@@ -69,208 +94,442 @@ def formatar_mensagem_tecnica(filme: dict, origem: str) -> str:
         "",
         f"Sinopse: {filme.get('sinopse', '')}",
         "",
-        f"Link TMDB: {filme.get('url', '')}"
+        f"Link TMDB: {filme.get('url', '')}",
     ]
     return "\n".join(linhas)
 
-def buscar_filme_local(genero, epoca, estilo) -> dict:
-    global DATA_PATH
-    if not DATA_PATH or not DATA_PATH.exists():
-        logger.error(f"Arquivo de dados nao encontrado no caminho: {DATA_PATH}")
-        return None
-    
-    with open(DATA_PATH, "r", encoding="utf-8") as f:
-        dados = json.load(f)
-        
-    filmes_base = dados.get("perfis", {}).get(genero, [])
-    if not filmes_base: return None
 
-    filtrados = []
-    if epoca and epoca != "qualquer":
-        for f in filmes_base:
-            ano = int(f.get("ano", 0)) if str(f.get("ano", "")).isdigit() else 0
-            if epoca == "classico" and 0 < ano < 2000: filtrados.append(f)
-            elif epoca == "anos2000" and 2000 <= ano <= 2019: filtrados.append(f)
-            elif epoca == "lancamento" and ano >= 2020: filtrados.append(f)
-    if not filtrados: filtrados = filmes_base
+def formatar_mensagem_ml(
+    filme: dict,
+    ranked_genres: list[str],
+    decade_preference: str | None,
+    popularity_preference: str | None,
+) -> str:
+    perfil_busca = [
+        ", ".join(ranked_genres),
+        decade_preference or "N/A",
+        popularity_preference or "N/A",
+    ]
+    linhas = [
+        "SUGESTÃO PARA VOCÊ",
+        "------------------",
+        f"Seu filtro desta busca: {' | '.join(perfil_busca)}",
+        f"Título: {filme.get('titulo', 'Desconhecido')} ({filme.get('ano', 'N/A')})",
+        f"Gêneros do filme: {', '.join(filme.get('generos', [])) or filme.get('perfil', 'N/A')}",
+        f"Direção: {filme.get('diretor', 'Desconhecido')}",
+        f"Nota TMDB: {filme.get('nota', 0)}",
+        f"Onde assistir: {', '.join(filme.get('streaming', [])) or 'N/A'}",
+        "",
+        f"Sinopse: {filme.get('sinopse', '')}",
+        "",
+        f"Link TMDB: {filme.get('url', '')}",
+    ]
+    return "\n".join(linhas)
 
-    if estilo == "aclamado":
-        filtrados.sort(key=lambda x: x.get("votos", 0), reverse=True)
-    elif estilo == "lado_b":
-        filtrados.sort(key=lambda x: x.get("votos", 0))
+
+def gerar_teclado_generos(selecionados: list[str]) -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup()
+    for chave, label in GENEROS.items():
+        if chave not in selecionados:
+            markup.add(InlineKeyboardButton(label, callback_data=f"gen:{chave}"))
+    return markup
+
+
+def gerar_teclado_decadas() -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup()
+    for chave, label in DECADAS.items():
+        markup.add(InlineKeyboardButton(label, callback_data=f"dec:{chave}"))
+    return markup
+
+
+def gerar_teclado_popularidade() -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup()
+    for chave, label in POPULARIDADES.items():
+        markup.add(InlineKeyboardButton(label, callback_data=f"pop:{chave}"))
+    return markup
+
+
+def teclado_feedback_recomendacao_ml() -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("Gostei", callback_data="acao:like"))
+    markup.add(InlineKeyboardButton("Não gostei", callback_data="acao:dislike"))
+    return markup
+
+
+def teclado_pos_feedback_ml() -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("Outra sugestão", callback_data="acao:proximo_ml"))
+    markup.add(InlineKeyboardButton("Sugestão do dia", callback_data="acao:curadoria"))
+    markup.add(InlineKeyboardButton("Encerrar", callback_data="acao:parar"))
+    return markup
+
+
+def teclado_sem_mais_sugestoes_ml() -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("Nova busca", callback_data="acao:reiniciar"))
+    markup.add(InlineKeyboardButton("Sugestão do dia", callback_data="acao:curadoria"))
+    markup.add(InlineKeyboardButton("Encerrar", callback_data="acao:parar"))
+    return markup
+
+
+def teclado_pos_curadoria() -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("Nova busca", callback_data="acao:reiniciar"))
+    markup.add(InlineKeyboardButton("Outra sugestão do dia", callback_data="acao:curadoria"))
+    markup.add(InlineKeyboardButton("Encerrar", callback_data="acao:parar"))
+    return markup
+
+
+def buscar_recomendacoes_ml(
+    ranked_genres: list[str],
+    decade_preference: str,
+    popularity_preference: str,
+    user_id: int | str | None = None,
+) -> dict:
+    payload = {
+        "ranked_genres": ranked_genres,
+        "decade_preference": decade_preference,
+        "popularity_preference": popularity_preference,
+        "data_path": str(DATA_PATH),
+        "top_n": 5,
+        "user_id": str(user_id) if user_id is not None else None,
+    }
+    response = requests.post(f"{API_BASE_URL}/predict", json=payload, timeout=30)
+    if response.status_code >= 400:
+        try:
+            detail = response.json().get("detail")
+        except Exception:
+            detail = None
+        if response.status_code == 400 and detail:
+            raise ValueError(str(detail))
+        response.raise_for_status()
+    return response.json()
+
+
+def iniciar_fluxo_ml(bot_tg: telebot.TeleBot, chat_id: int, user_id: int) -> None:
+    estado_usuarios[user_id] = {
+        "ranked_genres": [],
+        "decade_preference": None,
+        "popularity_preference": None,
+        "recommendations": [],
+        "current_movie": None,
+        "drift_report": None,
+        "awaiting_feedback": False,
+    }
+    bot_tg.send_message(
+        chat_id,
+        "Etapa 1 de 3: selecione o gênero que você mais gosta.",
+        reply_markup=gerar_teclado_generos([]),
+    )
+
+
+def enviar_recomendacao_ml(bot_tg: telebot.TeleBot, chat_id: int, user_id: int) -> None:
+    estado = estado_usuarios.get(user_id, {})
+    fila = estado.get("recommendations", [])
+
+    if not fila:
+        bot_tg.send_message(
+            chat_id,
+            "Não há mais sugestões nessa busca. Toque em 'Nova busca' para escolher outros gêneros.",
+            reply_markup=teclado_sem_mais_sugestoes_ml(),
+        )
+        return
+
+    filme = fila.pop(0)
+    estado["current_movie"] = filme
+    estado["recommendations"] = fila
+    estado["awaiting_feedback"] = True
+    estado_usuarios[user_id] = estado
+
+    mensagem = formatar_mensagem_ml(
+        filme,
+        estado.get("ranked_genres", []),
+        estado.get("decade_preference"),
+        estado.get("popularity_preference"),
+    )
+    markup = teclado_feedback_recomendacao_ml()
+
+    if filme.get("poster"):
+        bot_tg.send_photo(chat_id, photo=filme["poster"], caption=mensagem, reply_markup=markup)
     else:
-        random.shuffle(filtrados)
+        bot_tg.send_message(chat_id, mensagem, reply_markup=markup)
 
-    return random.choice(filtrados[:5]) if filtrados else None
 
-def gerar_teclado(dicionario: dict, prefixo: str) -> InlineKeyboardMarkup:
-    markup = InlineKeyboardMarkup()
-    for chave, label in dicionario.items():
-        markup.add(InlineKeyboardButton(label, callback_data=f"{prefixo}:{chave}"))
-    return markup
+def registrar_feedback(user_id: int, feedback_value: str) -> bool:
+    estado = estado_usuarios.get(user_id, {})
+    filme = estado.get("current_movie")
+    ranked_genres = estado.get("ranked_genres", [])
+    decade_preference = estado.get("decade_preference")
+    popularity_preference = estado.get("popularity_preference")
 
-def teclado_pos_sugestao() -> InlineKeyboardMarkup:
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("Próximo da Fila (Maestro)", callback_data="acao:recomendar"))
-    markup.add(InlineKeyboardButton("Novo Filtro (Q&A)", callback_data="acao:sugestao"))
-    markup.add(InlineKeyboardButton("Encerrar Sessão", callback_data="acao:parar"))
-    return markup
+    if not filme or len(ranked_genres) != 3 or not estado.get("awaiting_feedback"):
+        return False
 
-# ENTRY POINT
-def main():
+    append_feedback(
+        user_id=user_id,
+        movie_id=int(filme["movie_id"]),
+        ranked_genres=ranked_genres,
+        decade_preference=decade_preference,
+        popularity_preference=popularity_preference,
+        feedback_value=feedback_value,
+        feedback_path=FEEDBACK_PATH,
+    )
+    estado["awaiting_feedback"] = False
+    estado_usuarios[user_id] = estado
+    return True
+
+
+def carregar_fila_local() -> list[dict]:
+    if not LOCAL_QUEUE_PATH.exists():
+        return []
+    with open(LOCAL_QUEUE_PATH, "r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def salvar_fila_local(fila: list[dict]) -> None:
+    LOCAL_QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(LOCAL_QUEUE_PATH, "w", encoding="utf-8") as handle:
+        json.dump(fila, handle, ensure_ascii=False, indent=2)
+
+
+def consumir_fila_local() -> dict | None:
+    fila = carregar_fila_local()
+    if not fila:
+        return None
+    filme = fila.pop(0)
+    salvar_fila_local(fila)
+    return filme
+
+
+def comando_recomendar(bot_tg: telebot.TeleBot, message, execution) -> None:
+    bot_tg.send_message(message.chat.id, "Buscando uma sugestão para você...")
+    try:
+        if USE_DATAPOOL:
+            if maestro is None:
+                raise RuntimeError("Maestro indisponível para uso com DataPool.")
+
+            datapool = maestro.get_datapool("gabriel-filmes")
+            task_id = execution.task_id if execution else None
+            if not datapool.has_next():
+                bot_tg.send_message(message.chat.id, "Não há mais sugestões disponíveis no momento.")
+                return
+            entry = datapool.next(task_id=task_id)
+            filme = entry.values
+        else:
+            filme = consumir_fila_local()
+            if not filme:
+                bot_tg.send_message(message.chat.id, "Não há mais sugestões disponíveis no momento.")
+                return
+            entry = None
+
+        mensagem = formatar_mensagem_curadoria(filme, "")
+
+        if filme.get("poster"):
+            bot_tg.send_photo(message.chat.id, photo=filme["poster"], caption=mensagem, reply_markup=teclado_pos_curadoria())
+        else:
+            bot_tg.send_message(message.chat.id, mensagem, reply_markup=teclado_pos_curadoria())
+
+        if entry is not None:
+            entry.report_done()
+        logger.info("Fila consumida: %s", filme.get("titulo"))
+    except Exception as exc:
+        logger.error("Erro no /recomendar: %s", exc)
+        bot_tg.send_message(message.chat.id, f"Erro ao consultar a fila: {exc}")
+
+
+def main() -> None:
     global DATA_PATH
     logger.info("Bot Telegram iniciando")
-    
+
     try:
-        # 1. Captura de parâmetros
-        execution = maestro.get_execution()
-        
+        execution = obter_execucao(maestro)
         if execution and execution.parameters:
             data_path = execution.parameters.get("DATA_PATH")
-            if not data_path:
-                raise ValueError("Parametro DATA_PATH nao configurado no Maestro")
-                
-            DATA_PATH = Path(data_path)
-            logger.info(f"DATA_PATH carregado: {DATA_PATH}")
-        else:
-            logger.warning("Nao ha execucao ou parametros no Maestro. DATA_PATH indisponivel.")
+            if data_path:
+                DATA_PATH = Path(data_path)
+        elif DEFAULT_DATA_PATH.exists():
+            DATA_PATH = DEFAULT_DATA_PATH
 
-        # 2. Credenciais via Vault
-        token = maestro.get_credential("gabriel-telegram", "token")
-        
+        try:
+            token = maestro.get_credential("gabriel-telegram", "token") if maestro else os.getenv("TELEGRAM_BOT_TOKEN")
+        except Exception:
+            token = os.getenv("TELEGRAM_BOT_TOKEN")
         if not token:
-            raise ValueError("Credencial do Telegram nao configurada no Vault")
+            raise ValueError("Credencial do Telegram não configurada no Vault nem no .env")
 
         bot_tg = telebot.TeleBot(token)
 
-        @bot_tg.message_handler(commands=['start', 'help'])
+        @bot_tg.message_handler(commands=["start", "help"])
         def start(message):
             texto = (
-                "Sistema Automatizado de Curadoria Cinematográfica.\n\n"
+                "CineBot de recomendações.\n\n"
                 "COMANDOS:\n"
-                "/recomendar — Puxar recomendacao direta do DataPool (Maestro)\n"
-                "/sugestao — Iniciar funil interativo de filtros (Q&A)"
+                "/recomendar - receber uma sugestão pronta\n"
+                "/sugestao - escolher 3 gêneros e receber sugestões personalizadas"
             )
             bot_tg.reply_to(message, texto)
 
-        @bot_tg.message_handler(commands=['recomendar'])
-        def comando_recomendar(message):
-            bot_tg.send_message(message.chat.id, "Consultando DataPool no Maestro...")
-            try:
-                task_id = execution.task_id if execution else None
-                datapool = maestro.get_datapool("gabriel-filmes")
-                
-                if datapool.has_next():
-                    entry = datapool.next(task_id=task_id)
-                    filme = entry.values
-                    
-                    msg = formatar_mensagem_tecnica(filme, "Fila Maestro")
-                    markup = teclado_pos_sugestao()
-                    
-                    if filme.get("poster"):
-                        bot_tg.send_photo(message.chat.id, photo=filme["poster"], caption=msg, reply_markup=markup)
-                    else:
-                        bot_tg.send_message(message.chat.id, text=msg, reply_markup=markup)
+        @bot_tg.message_handler(commands=["recomendar"])
+        def recomendar(message):
+            comando_recomendar(bot_tg, message, execution)
 
-                    entry.report_done()
-                    logger.info(f"DataPool consumido: {filme.get('titulo')}")
-                else:
-                    bot_tg.send_message(message.chat.id, "Nao ha itens pendentes no DataPool.")
-            except Exception as e:
-                bot_tg.send_message(message.chat.id, f"Erro na integracao: {e}")
-                logger.error(f"Erro no /recomendar: {e}")
-
-        @bot_tg.message_handler(commands=['sugestao'])
-        def comando_sugestao(message):
-            estado_usuarios[message.from_user.id] = {}
-            bot_tg.send_message(
-                message.chat.id, 
-                "Passo 1: Selecione o genero cinematografico.",
-                reply_markup=gerar_teclado(GENEROS, "gen")
-            )
+        @bot_tg.message_handler(commands=["sugestao"])
+        def sugestao(message):
+            iniciar_fluxo_ml(bot_tg, message.chat.id, message.from_user.id)
 
         @bot_tg.callback_query_handler(func=lambda call: True)
         def callback_handler(call):
             user_id = call.from_user.id
-            data = call.data
             chat_id = call.message.chat.id
-            msg_id = call.message.message_id
-
-            if user_id not in estado_usuarios:
-                estado_usuarios[user_id] = {}
+            message_id = call.message.message_id
+            data = call.data
 
             if data.startswith("gen:"):
-                estado_usuarios[user_id]["genero"] = data.split(":")[1]
-                bot_tg.edit_message_text(
-                    "Passo 2: Selecione o periodo de lancamento.",
-                    chat_id=chat_id, message_id=msg_id,
-                    reply_markup=gerar_teclado(EPOCAS, "epo")
-                )
+                genero = data.split(":", 1)[1]
+                estado = estado_usuarios.setdefault(user_id, {"ranked_genres": []})
+                ranked = estado.setdefault("ranked_genres", [])
 
-            elif data.startswith("epo:"):
-                estado_usuarios[user_id]["epoca"] = data.split(":")[1]
-                bot_tg.edit_message_text(
-                    "Passo 3: Selecione o estilo de reconhecimento da obra.",
-                    chat_id=chat_id, message_id=msg_id,
-                    reply_markup=gerar_teclado(ESTILOS, "est")
-                )
-
-            elif data.startswith("est:"):
-                estilo = data.split(":")[1]
-                estado = estado_usuarios.get(user_id, {})
-                bot_tg.edit_message_text("Filtrando base de dados local...", chat_id=chat_id, message_id=msg_id)
-                
-                filme = buscar_filme_local(estado.get("genero"), estado.get("epoca"), estilo)
-
-                if not filme:
-                    bot_tg.edit_message_text("Nenhuma correspondencia encontrada no catalogo.", chat_id=chat_id, message_id=msg_id)
+                if genero in ranked:
+                    bot_tg.answer_callback_query(call.id, "Gênero já selecionado.")
                     return
 
-                msg = formatar_mensagem_tecnica(filme, "QA Interativo")
-                markup = teclado_pos_sugestao()
-                
-                if filme.get("poster"):
-                    bot_tg.delete_message(chat_id, msg_id)
-                    bot_tg.send_photo(chat_id, photo=filme["poster"], caption=msg, reply_markup=markup)
-                else:
-                    bot_tg.edit_message_text(msg, chat_id=chat_id, message_id=msg_id, reply_markup=markup)
-                estado_usuarios.pop(user_id, None)
+                ranked.append(genero)
+                posicao = len(ranked)
 
-            elif data.startswith("acao:"):
-                acao = data.split(":")[1]
-                
-                # Remove os botões da mensagem para limpar o histórico do chat
-                bot_tg.edit_message_reply_markup(chat_id=chat_id, message_id=msg_id, reply_markup=None)
-                
-                if acao == "recomendar":
-                    comando_recomendar(call.message)
-                    
-                elif acao == "sugestao":
-                    estado_usuarios[user_id] = {}
-                    bot_tg.send_message(
-                        chat_id, 
-                        "Passo 1: Selecione o genero cinematografico.",
-                        reply_markup=gerar_teclado(GENEROS, "gen")
+                if posicao < 3:
+                    bot_tg.edit_message_text(
+                        f"Etapa 1 de 3: selecione o gênero número {posicao + 1} da sua preferência.",
+                        chat_id=chat_id,
+                        message_id=message_id,
+                        reply_markup=gerar_teclado_generos(ranked),
                     )
-                    
-                elif acao == "parar":
+                    return
+
+                bot_tg.edit_message_text(
+                    "Etapa 2 de 3: escolha a década do filme que você quer ver hoje.",
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    reply_markup=gerar_teclado_decadas(),
+                )
+                return
+
+            if data.startswith("dec:"):
+                decade_preference = data.split(":", 1)[1]
+                estado = estado_usuarios.setdefault(user_id, {"ranked_genres": []})
+                estado["decade_preference"] = DECADAS.get(decade_preference, decade_preference)
+                estado_usuarios[user_id] = estado
+
+                bot_tg.edit_message_text(
+                    "Etapa 3 de 3: escolha entre um filme popular ou uma joia escondida.",
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    reply_markup=gerar_teclado_popularidade(),
+                )
+                return
+
+            if data.startswith("pop:"):
+                popularity_preference = data.split(":", 1)[1]
+                estado = estado_usuarios.setdefault(user_id, {"ranked_genres": []})
+                ranked = estado.get("ranked_genres", [])
+                decade_preference = estado.get("decade_preference")
+                estado["popularity_preference"] = POPULARIDADES.get(popularity_preference, popularity_preference)
+                estado_usuarios[user_id] = estado
+
+                bot_tg.edit_message_text(
+                    "Buscando sugestões personalizadas para você...",
+                    chat_id=chat_id,
+                    message_id=message_id,
+                )
+
+                try:
+                    resposta = buscar_recomendacoes_ml(
+                        ranked,
+                        decade_preference=decade_preference,
+                        popularity_preference=estado["popularity_preference"],
+                        user_id=user_id,
+                    )
+                except ValueError as exc:
+                    logger.info("Busca sem resultado exato: %s", exc)
+                    bot_tg.send_message(
+                        chat_id,
+                        f"{exc}\n\nTente mudar a década, a popularidade ou iniciar uma nova busca.",
+                        reply_markup=teclado_sem_mais_sugestoes_ml(),
+                    )
+                    return
+                except Exception as exc:
+                    logger.error("Falha ao consultar /predict: %s", exc)
+                    bot_tg.send_message(chat_id, f"Não consegui buscar sugestões agora: {exc}")
+                    return
+
+                estado["ranked_genres"] = resposta.get("ranked_genres", ranked)
+                estado["decade_preference"] = resposta.get("decade_preference", estado.get("decade_preference"))
+                estado["popularity_preference"] = resposta.get(
+                    "popularity_preference",
+                    estado.get("popularity_preference"),
+                )
+                estado["recommendations"] = resposta.get("recommendations", [])
+                estado["drift_report"] = resposta.get("drift_report")
+                estado["current_movie"] = None
+                estado["awaiting_feedback"] = False
+                estado_usuarios[user_id] = estado
+
+                enviar_recomendacao_ml(bot_tg, chat_id, user_id)
+                return
+
+            if data.startswith("acao:"):
+                acao = data.split(":", 1)[1]
+                bot_tg.edit_message_reply_markup(chat_id=chat_id, message_id=message_id, reply_markup=None)
+
+                if acao == "proximo_ml":
+                    enviar_recomendacao_ml(bot_tg, chat_id, user_id)
+                    return
+
+                if acao == "like":
+                    sucesso = registrar_feedback(user_id, "like")
+                    resposta = (
+                        "Que bom! Vou levar isso em conta nas próximas sugestões."
+                        if sucesso
+                        else "Não encontrei uma sugestão ativa para registrar."
+                    )
+                    bot_tg.send_message(chat_id, resposta, reply_markup=teclado_pos_feedback_ml())
+                    return
+
+                if acao == "dislike":
+                    sucesso = registrar_feedback(user_id, "dislike")
+                    resposta = (
+                        "Entendi. Vou tentar algo melhor nas próximas sugestões."
+                        if sucesso
+                        else "Não encontrei uma sugestão ativa para registrar."
+                    )
+                    bot_tg.send_message(chat_id, resposta, reply_markup=teclado_pos_feedback_ml())
+                    return
+
+                if acao == "curadoria":
+                    comando_recomendar(bot_tg, call.message, execution)
+                    return
+
+                if acao == "reiniciar":
+                    iniciar_fluxo_ml(bot_tg, chat_id, user_id)
+                    return
+
+                if acao == "parar":
                     bot_tg.send_message(chat_id, "Sessão encerrada. Digite /start quando quiser voltar.")
 
         bot_tg.infinity_polling()
-
-    except Exception as e:
-        logger.error(f"Erro fatal na inicializacao: {e}")
+    except Exception as exc:
+        logger.error("Erro fatal na inicialização: %s", exc)
         try:
-            execution = maestro.get_execution()
-            if execution:
+            execution = obter_execucao(maestro)
+            if execution and maestro:
                 maestro.finish_task(
                     task_id=execution.task_id,
                     status=AutomationTaskFinishStatus.FAILED,
-                    message=str(e),
+                    message=str(exc),
                 )
         except Exception:
             pass
         raise
+
 
 if __name__ == "__main__":
     main()
