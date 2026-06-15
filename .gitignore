@@ -19,6 +19,9 @@ env/
 .DS_Store
 .idea/
 .vscode/
+.mplconfig/
+.texlive-cache/
+apresentacao/.texlive-cache/
 *.zip
 .codex
 data/
