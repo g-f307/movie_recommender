@@ -420,6 +420,10 @@ def build_training_rows(catalog: list[dict]) -> list[dict]:
                             **preference_features,
                             "score_heuristico": round(score, 4),
                             "relevante": int(score >= RELEVANCE_THRESHOLD),
+                            "label_source": "heuristic_proxy",
+                            "feedback_applied": 0,
+                            "feedback_scope": "none",
+                            "feedback_votes": 0,
                         }
                     )
 
@@ -481,6 +485,19 @@ def override_labels_with_feedback(dataframe: pd.DataFrame, feedback_path: Path =
             ["movie_id", "pref_1", "pref_2", "pref_3", "decade_pref", "popularity_pref"],
             "label_specific",
         )
+        specific_counts = (
+            specific_feedback.groupby(
+                ["movie_id", "pref_1", "pref_2", "pref_3", "decade_pref", "popularity_pref"],
+                as_index=False,
+            )
+            .size()
+            .rename(columns={"size": "feedback_votes_specific"})
+        )
+        specific_aggregated = specific_aggregated.merge(
+            specific_counts,
+            on=["movie_id", "pref_1", "pref_2", "pref_3", "decade_pref", "popularity_pref"],
+            how="left",
+        )
         merged = merged.merge(
             specific_aggregated,
             on=["movie_id", "pref_1", "pref_2", "pref_3", "decade_pref", "popularity_pref"],
@@ -488,12 +505,23 @@ def override_labels_with_feedback(dataframe: pd.DataFrame, feedback_path: Path =
         )
     else:
         merged["label_specific"] = pd.NA
+        merged["feedback_votes_specific"] = pd.NA
 
     if not legacy_feedback.empty:
         legacy_aggregated = aggregate_feedback(
             legacy_feedback,
             ["movie_id", "pref_1", "pref_2", "pref_3"],
             "label_legacy",
+        )
+        legacy_counts = (
+            legacy_feedback.groupby(["movie_id", "pref_1", "pref_2", "pref_3"], as_index=False)
+            .size()
+            .rename(columns={"size": "feedback_votes_legacy"})
+        )
+        legacy_aggregated = legacy_aggregated.merge(
+            legacy_counts,
+            on=["movie_id", "pref_1", "pref_2", "pref_3"],
+            how="left",
         )
         merged = merged.merge(
             legacy_aggregated,
@@ -502,6 +530,7 @@ def override_labels_with_feedback(dataframe: pd.DataFrame, feedback_path: Path =
         )
     else:
         merged["label_legacy"] = pd.NA
+        merged["feedback_votes_legacy"] = pd.NA
 
     resolved_label = pd.to_numeric(
         merged["label_specific"].combine_first(merged["label_legacy"]),
@@ -513,7 +542,70 @@ def override_labels_with_feedback(dataframe: pd.DataFrame, feedback_path: Path =
         resolved_label_filled,
         merged["relevante"].astype(int),
     )
-    return merged.drop(columns=["label_specific", "label_legacy"])
+    has_specific = merged["label_specific"].notna()
+    has_legacy = merged["label_legacy"].notna()
+    merged["feedback_applied"] = (has_specific | has_legacy).astype(int)
+    merged["feedback_scope"] = np.select(
+        [has_specific, has_legacy],
+        ["exact_context_feedback", "profile_feedback"],
+        default="none",
+    )
+    merged["label_source"] = np.select(
+        [has_specific, has_legacy],
+        ["feedback_exact_context", "feedback_profile"],
+        default="heuristic_proxy",
+    )
+    specific_votes = pd.to_numeric(merged["feedback_votes_specific"], errors="coerce").fillna(0).astype(int)
+    legacy_votes = pd.to_numeric(merged["feedback_votes_legacy"], errors="coerce").fillna(0).astype(int)
+    merged["feedback_votes"] = np.where(has_specific, specific_votes, np.where(has_legacy, legacy_votes, 0))
+    return merged.drop(
+        columns=[
+            "label_specific",
+            "label_legacy",
+            "feedback_votes_specific",
+            "feedback_votes_legacy",
+        ]
+    )
+
+
+def summarize_supervision_sources(dataframe: pd.DataFrame) -> dict:
+    total_rows = int(len(dataframe))
+    unique_movies = int(dataframe["movie_id"].nunique()) if "movie_id" in dataframe.columns else 0
+    class_distribution = {}
+    if "relevante" in dataframe.columns and total_rows:
+        counts = dataframe["relevante"].value_counts(dropna=False).sort_index()
+        class_distribution = {
+            str(int(label)): {
+                "rows": int(count),
+                "share": round(float(count / total_rows), 4),
+            }
+            for label, count in counts.items()
+        }
+
+    if "label_source" in dataframe.columns and total_rows:
+        source_counts = dataframe["label_source"].value_counts(dropna=False)
+        label_sources = {
+            str(source): {
+                "rows": int(count),
+                "share": round(float(count / total_rows), 4),
+            }
+            for source, count in source_counts.items()
+        }
+    else:
+        label_sources = {}
+
+    feedback_rows = int(dataframe["feedback_applied"].sum()) if "feedback_applied" in dataframe.columns else 0
+    feedback_events = int(dataframe["feedback_votes"].sum()) if "feedback_votes" in dataframe.columns else 0
+
+    return {
+        "total_rows": total_rows,
+        "unique_movies": unique_movies,
+        "class_distribution": class_distribution,
+        "label_sources": label_sources,
+        "feedback_rows": feedback_rows,
+        "feedback_rows_share": round(float(feedback_rows / total_rows), 4) if total_rows else 0.0,
+        "feedback_events": feedback_events,
+    }
 
 
 def build_dataset(

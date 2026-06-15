@@ -15,6 +15,12 @@ MLFLOW_DB_PATH = PROJECT_ROOT / "mlflow.db"
 MODEL_NAME = "cinebot_relevance"
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", f"sqlite:///{MLFLOW_DB_PATH}")
 DEFAULT_TOP_N = 5
+ENABLE_DRIFT_ON_PREDICT = os.getenv("CINEBOT_ENABLE_DRIFT_ON_PREDICT", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "sim",
+}
 
 GENRE_LABELS = {
     "acao": "Ação",

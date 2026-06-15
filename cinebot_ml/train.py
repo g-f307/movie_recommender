@@ -23,6 +23,7 @@ from cinebot_ml.config import (
     REFERENCE_DATA_PATH,
 )
 from cinebot_ml.dataset import build_dataset
+from cinebot_ml.dataset import summarize_supervision_sources
 from cinebot_ml.modeling import (
     build_model_candidates,
     build_pipeline,
@@ -89,6 +90,7 @@ def main() -> None:
     dataset = build_dataset(data_path=DEFAULT_DATA_PATH, output_path=DATASET_PATH)
     if dataset.empty:
         raise ValueError("Não foi possível gerar dataset de treino a partir do catálogo atual.")
+    supervision_summary = summarize_supervision_sources(dataset)
 
     outer_split = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
     train_idx, test_idx = next(outer_split.split(dataset, dataset["relevante"], groups=dataset["movie_id"]))
@@ -139,10 +141,12 @@ def main() -> None:
             if best_candidate is None or (
                 cv_mean_metrics["f1"],
                 cv_mean_metrics["precision"],
+                cv_mean_metrics.get("average_precision", 0.0),
                 cv_mean_metrics["roc_auc"],
             ) > (
                 best_candidate["metrics"]["f1"],
                 best_candidate["metrics"]["precision"],
+                best_candidate["metrics"].get("average_precision", 0.0),
                 best_candidate["metrics"]["roc_auc"],
             ):
                 best_candidate = candidate_result
@@ -173,10 +177,12 @@ def main() -> None:
         if best_result is None or (
             metrics["f1"],
             metrics["precision"],
+            metrics.get("average_precision", 0.0),
             metrics.get("roc_auc", 0.0),
         ) > (
             best_result["metrics"]["f1"],
             best_result["metrics"]["precision"],
+            best_result["metrics"].get("average_precision", 0.0),
             best_result["metrics"].get("roc_auc", 0.0),
         ):
             best_model = pipeline
@@ -233,6 +239,12 @@ def main() -> None:
         "tracking_uri": MLFLOW_TRACKING_URI,
         "dataset_path": str(DATASET_PATH),
         "catalog_source": str(DEFAULT_DATA_PATH),
+        "task_framing": {
+            "supervised_target": "aderencia_ao_perfil_declarado",
+            "label_description": "Classe 1 representa contexto aderente ao perfil informado; classe 0 representa contexto nao aderente.",
+            "feedback_role": "Feedback real sobrescreve rotulos quando existe evidencia explicita do usuario e complementa a personalizacao em inferencia.",
+        },
+        "dataset_supervision_summary": supervision_summary,
         "split_strategy": "GroupShuffleSplit por movie_id no teste final + validação cruzada por grupos no treino",
         "cross_validation": {
             "strategy": "StratifiedGroupKFold" if StratifiedGroupKFold is not None else "GroupKFold",

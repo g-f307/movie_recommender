@@ -7,6 +7,7 @@ from cinebot_ml.config import (
     DEFAULT_DATA_PATH,
     DEFAULT_TOP_N,
     DRIFT_REPORT_PATH,
+    ENABLE_DRIFT_ON_PREDICT,
     FEEDBACK_PATH,
     MODEL_METADATA_PATH,
     MODEL_NAME,
@@ -39,6 +40,9 @@ class CinebotRecommender:
     def __init__(self) -> None:
         self._model = None
         self._metadata = {}
+        self._catalog_cache: dict[str, list[dict]] = {}
+        self._catalog_context_cache: dict[str, dict] = {}
+        self._reference_data: pd.DataFrame | None = None
 
     @property
     def metadata(self) -> dict:
@@ -92,7 +96,8 @@ class CinebotRecommender:
         user_id: int | str | None = None,
     ) -> dict:
         model = self.load()
-        catalog = load_catalog(Path(data_path) if data_path else DEFAULT_DATA_PATH)
+        catalog_path = Path(data_path) if data_path else DEFAULT_DATA_PATH
+        catalog = self._load_catalog(catalog_path)
         if not catalog:
             raise ValueError("Catálogo vazio ou indisponível para recomendação.")
 
@@ -110,7 +115,7 @@ class CinebotRecommender:
         )
         probabilities = model.predict_proba(inference_df[FEATURE_COLUMNS])[:, 1]
         movie_lookup = {str(movie.get("id")): movie for movie in catalog}
-        catalog_context = build_catalog_context(catalog)
+        catalog_context = self._build_catalog_context(catalog_path, catalog)
         user_profile = self._build_user_profile(user_id=user_id, catalog=catalog)
         scored = inference_df.copy()
         scored["ml_score"] = probabilities
@@ -185,7 +190,7 @@ class CinebotRecommender:
                 }
             )
 
-        drift_report = self._generate_drift(inference_df)
+        drift_report = self._generate_drift(inference_df) if ENABLE_DRIFT_ON_PREDICT else None
         return {
             "ranked_genres": [label_for_genre(item) for item in canonical_ranked],
             "decade_preference": label_for_decade_preference(normalized_decade),
@@ -194,6 +199,18 @@ class CinebotRecommender:
             "drift_report": drift_report,
             "recommendations": recommendations,
         }
+
+    def _load_catalog(self, data_path: Path) -> list[dict]:
+        cache_key = str(data_path.resolve())
+        if cache_key not in self._catalog_cache:
+            self._catalog_cache[cache_key] = load_catalog(data_path)
+        return self._catalog_cache[cache_key]
+
+    def _build_catalog_context(self, data_path: Path, catalog: list[dict]) -> dict:
+        cache_key = str(data_path.resolve())
+        if cache_key not in self._catalog_context_cache:
+            self._catalog_context_cache[cache_key] = build_catalog_context(catalog)
+        return self._catalog_context_cache[cache_key]
 
     def _build_reason(
         self,
@@ -297,7 +314,9 @@ class CinebotRecommender:
         if not REFERENCE_DATA_PATH.exists():
             return None
 
-        reference_data = pd.read_csv(REFERENCE_DATA_PATH)
+        if self._reference_data is None:
+            self._reference_data = pd.read_csv(REFERENCE_DATA_PATH)
+        reference_data = self._reference_data
         subset = current_data[
             [
                 "sinopse",

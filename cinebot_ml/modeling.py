@@ -6,7 +6,16 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.compose import ColumnTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.metrics import (
+    accuracy_score,
+    average_precision_score,
+    f1_score,
+    precision_recall_curve,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    roc_curve,
+)
 from sklearn.naive_bayes import ComplementNB
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
@@ -110,6 +119,7 @@ def evaluate_model(model: Pipeline, features, target) -> dict[str, float]:
 
     if probabilities is not None:
         metrics["roc_auc"] = roc_auc_score(target, probabilities)
+        metrics["average_precision"] = average_precision_score(target, probabilities)
 
     return metrics
 
@@ -122,8 +132,27 @@ def evaluate_probabilities(target, probabilities, threshold: float) -> dict[str,
         "recall": recall_score(target, predictions, zero_division=0),
         "f1": f1_score(target, predictions, zero_division=0),
         "roc_auc": roc_auc_score(target, probabilities),
+        "average_precision": average_precision_score(target, probabilities),
     }
     return metrics
+
+
+def build_precision_recall_points(target, probabilities) -> dict[str, list[float]]:
+    precision, recall, thresholds = precision_recall_curve(target, probabilities)
+    return {
+        "precision": precision.tolist(),
+        "recall": recall.tolist(),
+        "thresholds": thresholds.tolist(),
+    }
+
+
+def build_roc_points(target, probabilities) -> dict[str, list[float]]:
+    fpr, tpr, thresholds = roc_curve(target, probabilities)
+    return {
+        "fpr": fpr.tolist(),
+        "tpr": tpr.tolist(),
+        "thresholds": thresholds.tolist(),
+    }
 
 
 def select_best_threshold(target, probabilities) -> tuple[float, dict[str, float]]:
