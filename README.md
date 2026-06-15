@@ -115,10 +115,12 @@ TELEGRAM_BOT_TOKEN=SEU_TOKEN_LOCAL_OPCIONAL
 CINEBOT_ML_API_URL=http://127.0.0.1:8000
 DATA_PATH=data/filmes.json
 MOVIES_PER_PROFILE=0
+MAX_PAGES=8
 MAX_MOVIES_PER_COLLECTION=1
 MIN_VOTE_AVERAGE=7.2
 MIN_VOTE_COUNT=300
 DISCOVER_SORT_BY=popularity.desc
+CINEBOT_ENABLE_DRIFT_ON_PREDICT=false
 LOCAL_QUEUE_PATH=data/fila_curadoria.json
 CURADORIA_HISTORY_PATH=data/historico_inseridos.json
 USE_DATAPOOL=false
@@ -255,7 +257,13 @@ Fluxo do `/recomendar`:
 
 ## Drift com Evidently
 
-Ao processar uma recomendação via API, o projeto tenta comparar os dados atuais com o baseline de treino salvo em `datasets/reference_features.csv`.
+O projeto mantém o baseline de treino em `datasets/reference_features.csv` e pode gerar o relatório HTML em `reports/relatorio_drift.html`.
+
+Por padrão, o endpoint `POST /predict` **não** executa o Evidently durante a recomendação, para não aumentar a latência do bot. Se quiser habilitar essa geração no caminho da API, defina:
+
+```env
+CINEBOT_ENABLE_DRIFT_ON_PREDICT=true
+```
 
 Relatório esperado:
 
