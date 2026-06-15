@@ -51,14 +51,21 @@ def parse_bool(value: str | None, default: bool = True) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "sim"}
 
 
-def buscar_filmes_por_perfil(perfil: dict, api_key: str, page: int = 1) -> list:
+def buscar_filmes_por_perfil(
+    perfil: dict,
+    api_key: str,
+    page: int = 1,
+    min_vote_average: float = 7.2,
+    min_vote_count: int = 300,
+    sort_by: str = "popularity.desc",
+) -> list:
     params = {
         "api_key": api_key,
         "language": "pt-BR",
         "with_genres": perfil["genero_id"],
-        "vote_average.gte": 7.2,
-        "vote_count.gte": 300,
-        "sort_by": "vote_average.desc",
+        "vote_average.gte": min_vote_average,
+        "vote_count.gte": min_vote_count,
+        "sort_by": sort_by,
         "without_genres": "16,10751,10770",
         "with_original_language": "en|pt|fr|de|it|es|ja|ko",
         "with_runtime.gte": 80,
@@ -207,15 +214,27 @@ def main() -> None:
     parameters = execution.parameters if execution else {}
 
     data_path = parameters.get("DATA_PATH") or os.getenv("DATA_PATH", "data/filmes.json")
-    max_movies = int(parameters.get("MOVIES_PER_PROFILE") or os.getenv("MOVIES_PER_PROFILE", "10"))
+    max_movies = int(parameters.get("MOVIES_PER_PROFILE") or os.getenv("MOVIES_PER_PROFILE", "0"))
     max_pages = int(parameters.get("MAX_PAGES") or os.getenv("MAX_PAGES", "8"))
     max_movies_per_collection = int(
         parameters.get("MAX_MOVIES_PER_COLLECTION") or os.getenv("MAX_MOVIES_PER_COLLECTION", "1")
     )
+    min_vote_average = float(parameters.get("MIN_VOTE_AVERAGE") or os.getenv("MIN_VOTE_AVERAGE", "7.2"))
+    min_vote_count = int(parameters.get("MIN_VOTE_COUNT") or os.getenv("MIN_VOTE_COUNT", "300"))
+    discover_sort_by = parameters.get("DISCOVER_SORT_BY") or os.getenv("DISCOVER_SORT_BY", "popularity.desc")
     headless = parse_bool(parameters.get("HEADLESS") or os.getenv("HEADLESS"), default=True)
     data_output = Path(data_path)
 
     print(f"[scraper] Iniciando coleta em {datetime.now().isoformat()} | destino={data_output}")
+    print(
+        "[scraper] Configuração: "
+        f"movies_per_profile={'sem cota rígida' if max_movies <= 0 else max_movies}, "
+        f"max_pages={max_pages}, "
+        f"max_movies_per_collection={max_movies_per_collection}, "
+        f"min_vote_average={min_vote_average}, "
+        f"min_vote_count={min_vote_count}, "
+        f"sort_by={discover_sort_by}"
+    )
 
     try:
         try:
@@ -238,8 +257,15 @@ def main() -> None:
                 filmes_detalhados = []
                 ids_vistos = set()
 
-                while len(filmes_detalhados) < max_movies and page <= max_pages:
-                    filmes_api = buscar_filmes_por_perfil(perfil, tmdb_key, page=page)
+                while page <= max_pages and (max_movies <= 0 or len(filmes_detalhados) < max_movies):
+                    filmes_api = buscar_filmes_por_perfil(
+                        perfil,
+                        tmdb_key,
+                        page=page,
+                        min_vote_average=min_vote_average,
+                        min_vote_count=min_vote_count,
+                        sort_by=discover_sort_by,
+                    )
                     page += 1
 
                     if not filmes_api:
@@ -312,7 +338,7 @@ def main() -> None:
                         }
                         filmes_detalhados.append(filme)
 
-                        if len(filmes_detalhados) >= max_movies:
+                        if max_movies > 0 and len(filmes_detalhados) >= max_movies:
                             break
 
                         time.sleep(1.2)
@@ -328,6 +354,9 @@ def main() -> None:
             "configuracao": {
                 "movies_per_profile": max_movies,
                 "max_movies_per_collection": max_movies_per_collection,
+                "min_vote_average": min_vote_average,
+                "min_vote_count": min_vote_count,
+                "discover_sort_by": discover_sort_by,
                 "headless": headless,
             },
             "perfis": todos_filmes,
