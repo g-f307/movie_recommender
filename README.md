@@ -4,6 +4,8 @@
 
 Upgrade do `CineBot, curadoria de filmes` para o `Desafio 02 - Upgrade do Bot Pessoal com ML`. O projeto preserva os três bots originais do Módulo 1 e adiciona uma camada de Machine Learning para recomendar filmes a partir de `3 gêneros ranqueados pelo usuário`, mais filtros de `década` e `popularidade`, como indicado na Seção 8 do enunciado para `Gabriel de Sá`.
 
+Nesta versão, o enquadramento metodológico é: `modelo supervisionado de aderência ao perfil declarado` para cold start, complementado por `personalização incremental com feedback real por user_id`.
+
 ## Arquitetura
 
 O fluxo agora ficou dividido em seis partes:
@@ -13,7 +15,7 @@ O fluxo agora ficou dividido em seis partes:
 2. `gabriel-curadoria/`
    Lê a base coletada e monta uma fila local em `data/fila_curadoria.json`. O envio ao DataPool do Maestro ficou opcional.
 3. `cinebot_ml/dataset.py`
-   Gera o dataset supervisionado `datasets/movie_preferences.csv` a partir do catálogo coletado e dos perfis de preferência.
+   Gera o dataset supervisionado `datasets/movie_preferences.csv` a partir do catálogo coletado e dos perfis de preferência, marcando quando o rótulo vem do proxy heurístico e quando foi sobrescrito por feedback real.
 4. `cinebot_ml/train.py`
    Compara `3 algoritmos distintos` com `Pipeline + ColumnTransformer`, aplica validação cruzada por grupos no treino, registra experimentos no MLflow e promove o vencedor para `@production`.
 5. `main.py`
@@ -55,7 +57,8 @@ Para operacionalizar isso no desafio, a camada de ML usa:
 - features textuais: sinopse, gêneros do filme e perfil textual das preferências
 - features categóricas: gênero principal do filme, diretor, ranking dos gêneros escolhidos, década desejada e perfil de popularidade
 - features numéricas: ano, nota, votos, duração, quantidade de streamings e aderência às preferências de década e popularidade
-- target supervisionado: afinidade do filme com o perfil ranqueado, com possibilidade de sobrescrita por feedback real do usuário
+- target supervisionado: aderência do filme ao perfil ranqueado declarado
+- personalização adicional: reforço por feedback real do usuário na inferência e, quando houver contexto compatível, sobrescrita do rótulo no dataset
 
 ## Modelos comparados
 
@@ -65,7 +68,7 @@ O script de treino foi preparado para comparar no MLflow:
 - `LinearSVC` calibrado
 - `ComplementNB`
 
-O vencedor é escolhido com base em `F1`, `Precision` e `ROC-AUC`, após validação cruzada por grupos (`movie_id`) no conjunto de treino, e depois é confirmado em um holdout final separado. O modelo vencedor é salvo localmente em `artifacts/production_model.joblib` e, quando o MLflow estiver configurado, também pode ser promovido no Registry com alias `@production`.
+O vencedor é escolhido com base em `F1`, `Precision`, `PR AUC` e `ROC-AUC`, após validação cruzada por grupos (`movie_id`) no conjunto de treino, e depois é confirmado em um holdout final separado. O modelo vencedor é salvo localmente em `artifacts/production_model.joblib` e, quando o MLflow estiver configurado, também pode ser promovido no Registry com alias `@production`.
 
 ## Requisitos
 
@@ -111,8 +114,11 @@ TMDB_API_KEY=SUA_TMDB_API_KEY
 TELEGRAM_BOT_TOKEN=SEU_TOKEN_LOCAL_OPCIONAL
 CINEBOT_ML_API_URL=http://127.0.0.1:8000
 DATA_PATH=data/filmes.json
-MOVIES_PER_PROFILE=20
+MOVIES_PER_PROFILE=0
 MAX_MOVIES_PER_COLLECTION=1
+MIN_VOTE_AVERAGE=7.2
+MIN_VOTE_COUNT=300
+DISCOVER_SORT_BY=popularity.desc
 LOCAL_QUEUE_PATH=data/fila_curadoria.json
 CURADORIA_HISTORY_PATH=data/historico_inseridos.json
 USE_DATAPOOL=false
@@ -190,6 +196,7 @@ O treino atual inclui:
 - holdout final com `GroupShuffleSplit`
 - seleção de threshold por desempenho médio nas folds
 - persistência das métricas médias e do desvio padrão em `artifacts/model_metadata.json`
+- resumo formal da supervisão da base, incluindo proporção de rótulos heurísticos versus rótulos sobrescritos por feedback real
 
 ## FastAPI
 
