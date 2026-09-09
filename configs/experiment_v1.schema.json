@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/g-f307/movie_recommender/configs/experiment_v1.schema.json",
+  "title": "Movie Recommender experiment configuration v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "experiment", "seeds", "k_values", "paths", "data_versions", "methods", "conditions", "profiles", "metrics", "splits", "execution"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "experiment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "version", "protocol_version", "frozen"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1}, "version": {"type": "string", "minLength": 1},
+        "protocol_version": {"type": "string", "minLength": 1}, "frozen": {"type": "boolean"}
+      }
+    },
+    "seeds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer"}},
+    "k_values": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 1}},
+    "paths": {"type": "object", "additionalProperties": false, "required": ["catalog", "dataset", "feedback", "output_root", "split_manifests", "manifests", "raw", "tables", "figures", "reports"], "properties": {"catalog": {"type": "string"}, "dataset": {"type": "string"}, "feedback": {"type": "string"}, "output_root": {"type": "string"}, "split_manifests": {"type": "string"}, "manifests": {"type": "string"}, "raw": {"type": "string"}, "tables": {"type": "string"}, "figures": {"type": "string"}, "reports": {"type": "string"}}},
+    "data_versions": {"type": "object", "required": ["catalog", "dataset", "feedback"], "additionalProperties": false, "properties": {"catalog": {"type": "string"}, "dataset": {"type": "string"}, "feedback": {"type": "string"}}},
+    "methods": {"type": "object", "required": ["enabled", "optional"], "additionalProperties": false, "properties": {"enabled": {"type": "array", "items": {"enum": ["B0", "B1", "B2", "B3", "B4", "B5", "B6"]}}, "optional": {"type": "array", "items": {"enum": ["B0", "B1", "B2", "B3", "B4", "B5", "B6"]}}}},
+    "conditions": {"type": "array", "items": {"enum": ["C0", "C1", "C2", "C3", "C4", "C5"]}},
+    "profiles": {"type": "array", "items": {"enum": ["P0", "P1", "P2", "P3", "P4", "P5"]}},
+    "metrics": {"type": "object", "required": ["primary", "secondary"], "additionalProperties": false, "properties": {"primary": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "secondary": {"type": "array", "items": {"type": "string"}}}},
+    "splits": {"type": "object", "required": ["strategy", "temporal_strategy", "train_fraction", "validation_fraction", "test_fraction", "attempts"], "additionalProperties": false, "properties": {"strategy": {"enum": ["deterministic_group_stratification_search"]}, "temporal_strategy": {"enum": ["chronological_replay"]}, "train_fraction": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1}, "validation_fraction": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1}, "test_fraction": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1}, "attempts": {"type": "integer", "minimum": 1}}},
+    "execution": {"type": "object", "required": ["deterministic_repetitions", "stochastic_repetitions", "unit", "fail_on_dirty_worktree"], "additionalProperties": false, "properties": {"deterministic_repetitions": {"type": "integer", "minimum": 1}, "stochastic_repetitions": {"type": "integer", "minimum": 1}, "unit": {"enum": ["user", "profile"]}, "fail_on_dirty_worktree": {"type": "boolean"}}}
+  }
+}

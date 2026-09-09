@@ -10,3 +10,5 @@ dvc
 evidently
 requests
 python-dotenv
+PyYAML
+jsonschema
