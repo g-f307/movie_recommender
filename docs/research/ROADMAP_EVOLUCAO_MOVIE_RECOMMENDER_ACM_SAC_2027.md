@@ -18,9 +18,11 @@ preliminares à validade e a matriz de rastreabilidade são formalizadas em
 `docs/research/research_questions.md`.
 
 O documento está em estado de candidato à revisão do orientador. Valores finais
-de `K`, fonte principal de relevância, procedimento estatístico, tamanho mínimo
-da amostra e margem de não inferioridade de diversidade permanecem como decisões
-pendentes do protocolo experimental.
+de `K`, procedimento estatístico, tamanho mínimo operacional da amostra e margem
+de não inferioridade de diversidade foram definidos em
+`docs/research/experimental_protocol.md`, versão `protocol-v1.0`, e aguardam
+revisão. A fonte principal de relevância e a análise de poder após dados piloto
+permanecem pendentes.
 
 ---
 
@@ -1044,7 +1046,7 @@ A evolução será considerada cientificamente satisfatória se:
 
 ### Entregável
 
-`docs/experimental_protocol.md`
+`docs/research/experimental_protocol.md`
 
 Este documento deve ser tratado como a especificação oficial dos experimentos.
 
