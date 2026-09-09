@@ -31,4 +31,9 @@ mlflow.db
 artifacts/
 reports/
 results/manifests/splits/
+results/manifests/executions/
+results/raw/
+results/tables/
+results/figures/
+results/reports/
 datasets/*.csv
