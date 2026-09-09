@@ -3,6 +3,7 @@
 ## Pesquisa
 
 - [`research/research_questions.md`](research/research_questions.md): perguntas de pesquisa, hipóteses, variáveis e matriz de rastreabilidade.
+- [`research/experimental_protocol.md`](research/experimental_protocol.md): métodos, condições, métricas, replay temporal e regras de execução dos experimentos.
 - [`research/ROADMAP_EVOLUCAO_MOVIE_RECOMMENDER_ACM_SAC_2027.md`](research/ROADMAP_EVOLUCAO_MOVIE_RECOMMENDER_ACM_SAC_2027.md): plano de evolução científica e técnica do projeto.
 
 ## Artigo

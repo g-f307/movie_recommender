@@ -5,6 +5,9 @@
 **Status:** candidato à revisão do orientador
 **Issue:** #1 — `docs(science): formalizar perguntas de pesquisa, hipóteses e variáveis`
 
+As decisões operacionais são definidas em
+[`experimental_protocol.md`](experimental_protocol.md), versão `protocol-v1.0`.
+
 ## 1. Finalidade
 
 Este documento define o que será investigado na evolução científica do Movie
@@ -326,11 +329,11 @@ adiadas, sem ampliar artificialmente as conclusões.
 | ID | Decisão | Impacto | Responsável sugerido | Estado |
 |---|---|---|---|---|
 | DP-01 | Definir a fonte principal de relevância da avaliação final | validade das RQs e poder de generalização | autor e orientador | pendente |
-| DP-02 | Definir os valores oficiais de `K` | comparabilidade das métricas | protocolo experimental | pendente |
-| DP-03 | Definir limiar de significância, correção para múltiplos testes e método de IC | critérios das hipóteses | revisão metodológica | pendente |
-| DP-04 | Definir margem de não inferioridade de diversidade para H5 | decisão sobre o trade-off | revisão metodológica | pendente |
-| DP-05 | Definir tamanho mínimo da amostra e análise de poder | força das conclusões | autor e orientador | pendente |
-| DP-06 | Definir se usuários sintéticos serão usados apenas em robustez ou também no benchmark | interpretação da evidência | protocolo experimental | pendente |
+| DP-02 | Definir os valores oficiais de `K` | comparabilidade das métricas | protocolo experimental | definido: 5 principal e 10 sensibilidade |
+| DP-03 | Definir limiar de significância, correção para múltiplos testes e método de IC | critérios das hipóteses | revisão metodológica | definido em `protocol-v1.0`; pendente revisão |
+| DP-04 | Definir margem de não inferioridade de diversidade para H5 | decisão sobre o trade-off | revisão metodológica | definida em -0,05 ponto; pendente revisão |
+| DP-05 | Definir tamanho mínimo da amostra e análise de poder | força das conclusões | autor e orientador | mínimo 30 e meta 50; poder pendente após piloto |
+| DP-06 | Definir se usuários sintéticos serão usados apenas em robustez ou também no benchmark | interpretação da evidência | protocolo experimental | definidos para validação, robustez e análise exploratória |
 | DP-07 | Confirmar autorização institucional, autoria e artefatos publicáveis | submissão e reprodutibilidade externa | responsáveis institucionais | pendente |
 | DP-08 | Confirmar evento, track e requisitos oficiais vigentes | formato e posicionamento do estudo | autores | pendente |
 
