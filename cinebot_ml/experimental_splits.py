@@ -14,7 +14,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
-from cinebot_ml.config import DATASET_PATH, FEEDBACK_PATH, PROJECT_ROOT
+from cinebot_ml.experiment_config import (
+    DEFAULT_CONFIG_PATH,
+    ConfigValidationError,
+    load_config,
+    resolve_project_path,
+    validate_paths,
+)
 
 
 SPLIT_VERSION = "1.0"
@@ -28,9 +34,6 @@ HOLDOUT_FORBIDDEN_PURPOSES = {
     "threshold_selection",
     "tune",
 }
-DEFAULT_MANIFEST_DIR = PROJECT_ROOT / "results" / "manifests" / "splits"
-
-
 class SplitValidationError(ValueError):
     """Indica configuração ou dados incompatíveis com o protocolo de split."""
 
@@ -536,40 +539,55 @@ def reconstruct_temporal_partitions(manifest: Mapping[str, Any]) -> dict[str, li
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset", type=Path, default=DATASET_PATH)
-    parser.add_argument("--feedback", type=Path, default=FEEDBACK_PATH)
-    parser.add_argument("--output-dir", type=Path, default=DEFAULT_MANIFEST_DIR)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--attempts", type=int, default=128)
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
+    parser.add_argument("--dataset", type=Path)
+    parser.add_argument("--feedback", type=Path)
+    parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--seed", type=int)
+    parser.add_argument("--attempts", type=int)
     parser.add_argument("--overwrite", action="store_true")
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
-    config = SplitConfig(seed=args.seed, attempts=args.attempts)
     try:
-        group_manifest = create_group_manifest_from_csv(args.dataset, config)
-        feedback_events = read_feedback_events(args.feedback)
+        experiment = load_config(args.config)
+        validate_paths(experiment)
+        paths = experiment["paths"]
+        split = experiment["splits"]
+        dataset = args.dataset or resolve_project_path(paths["dataset"])
+        feedback = args.feedback or resolve_project_path(paths["feedback"])
+        output_dir = args.output_dir or resolve_project_path(paths["split_manifests"])
+        config = SplitConfig(
+            seed=args.seed if args.seed is not None else experiment["seeds"][0],
+            train_fraction=split["train_fraction"],
+            validation_fraction=split["validation_fraction"],
+            test_fraction=split["test_fraction"],
+            attempts=args.attempts if args.attempts is not None else split["attempts"],
+            protocol_version=experiment["experiment"]["protocol_version"],
+        )
+        group_manifest = create_group_manifest_from_csv(dataset, config)
+        feedback_events = read_feedback_events(feedback)
         temporal_partitions = temporal_split_events(feedback_events, config)
         temporal_manifest = build_temporal_manifest(
             feedback_events,
             temporal_partitions,
             config,
-            source_name=args.feedback.name,
-            source_sha256=sha256_file(args.feedback),
+            source_name=feedback.name,
+            source_sha256=sha256_file(feedback),
         )
         write_manifest(
             group_manifest,
-            args.output_dir / "movie_id_split.json",
+            output_dir / "movie_id_split.json",
             overwrite=args.overwrite,
         )
         write_manifest(
             temporal_manifest,
-            args.output_dir / "feedback_temporal_split.json",
+            output_dir / "feedback_temporal_split.json",
             overwrite=args.overwrite,
         )
-    except (SplitValidationError, ManifestConflictError) as exc:
+    except (ConfigValidationError, SplitValidationError, ManifestConflictError) as exc:
         raise SystemExit(f"Erro de particionamento: {exc}") from exc
     print(
         f"Splits concluídos: {group_manifest['total_groups']} filmes e "
