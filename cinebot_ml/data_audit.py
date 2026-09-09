@@ -292,8 +292,7 @@ def audit_catalog(path: Path) -> dict[str, Any]:
     )
 
     genre_distribution = Counter()
-    for movie_id, items in movies_by_id.items():
-        del movie_id
+    for items in movies_by_id.values():
         for profile in {profile for profile, _ in items}:
             genre_distribution[profile] += 1
 
@@ -534,6 +533,23 @@ def render_markdown(report: dict[str, Any]) -> str:
         "Este relatório é gerado automaticamente por `python -m cinebot_ml.data_audit`.",
         "Não contém identificadores de usuários nem valores da `.env`.",
         "",
+        "## Como reproduzir",
+        "",
+        "Auditoria completa:",
+        "",
+        "```bash",
+        "python -m cinebot_ml.data_audit",
+        "```",
+        "",
+        "Auditoria rápida para CI:",
+        "",
+        "```bash",
+        "python -m cinebot_ml.data_audit --sample-rows 1000 \\",
+        "  --json-output /tmp/data_audit.json \\",
+        "  --markdown-output /tmp/data_audit.md \\",
+        "  --dictionary-output /tmp/data_dictionary.md",
+        "```",
+        "",
         "## Resumo",
         "",
         "| Indicador | Valor |",
@@ -559,6 +575,30 @@ def render_markdown(report: dict[str, Any]) -> str:
         "|---|---:|---:|---:|",
     ]
     for field, values in catalog["coverage"].items():
+        lines.append(f"| {field} | {values['present']} | {values['total']} | {values['rate']:.2%} |")
+
+    lines.extend(
+        [
+            "",
+            "## Valores ausentes no catálogo",
+            "",
+            "| Campo | Ausentes | Taxa |",
+            "|---|---:|---:|",
+        ]
+    )
+    for field, values in catalog["missing"].items():
+        lines.append(f"| {field} | {values['count']} | {values['rate']:.2%} |")
+
+    lines.extend(
+        [
+            "",
+            "## Cobertura do dataset",
+            "",
+            "| Campo | Presentes | Total | Cobertura |",
+            "|---|---:|---:|---:|",
+        ]
+    )
+    for field, values in dataset["coverage"].items():
         lines.append(f"| {field} | {values['present']} | {values['total']} | {values['rate']:.2%} |")
 
     lines.extend(
@@ -623,6 +663,24 @@ def render_data_dictionary() -> str:
     lines.extend(
         [
             "",
+            "## Catálogo",
+            "",
+            "| Campo | Tipo lógico | Origem | Finalidade |",
+            "|---|---|---|---|",
+            "| `id` | identificador | TMDB | Identificar o filme único entre perfis. |",
+            "| `titulo` | texto | TMDB/BotCity | Apresentar e auditar o item. |",
+            "| `sinopse` | texto | TMDB/BotCity | Representar o conteúdo textual. |",
+            "| `diretor` | texto | créditos do TMDB | Representar direção e personalização. |",
+            "| `ano` | inteiro | data de lançamento | Derivar a década do filme. |",
+            "| `nota` | decimal | TMDB | Apoiar qualidade e popularidade. |",
+            "| `votos` | inteiro | TMDB | Calcular popularidade relativa. |",
+            "| `duracao` | inteiro | TMDB | Registrar duração em minutos. |",
+            "| `streaming` | lista de textos | provedores TMDB/BR | Informar disponibilidade. |",
+            "| `poster` | URL/texto | TMDB | Apresentar imagem do item. |",
+            "| `palavras_chave` | lista de textos | TMDB | Enriquecer conteúdo e personalização. |",
+            "| `perfil` | categoria | coleta | Registrar o perfil de origem da ocorrência. |",
+            "| `generos_secundarios` | lista de categorias | TMDB normalizado | Representar gêneros adicionais. |",
+            "",
             "## Feedback",
             "",
             "| Campo | Tipo lógico | Origem | Finalidade |",
@@ -635,8 +693,6 @@ def render_data_dictionary() -> str:
             "| `feedback` | categoria | usuário | `like` ou `dislike`. |",
             "| `label` | binário | feedback derivado | Representar feedback positivo ou negativo. |",
             "| `timestamp` | data/hora UTC | sistema | Ordenar eventos e prevenir uso de informação futura. |",
-            "",
-            "## Catálogo",
             "",
             "O catálogo preserva os campos originais por filme dentro de `perfis`. O `id` do TMDB define o item único; aparições em diferentes perfis são ocorrências do mesmo filme.",
             "",
