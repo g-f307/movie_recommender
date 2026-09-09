@@ -15,7 +15,7 @@
 
 As perguntas de pesquisa, hipóteses, variáveis, critérios de decisão, ameaças
 preliminares à validade e a matriz de rastreabilidade são formalizadas em
-`docs/research_questions.md`.
+`docs/research/research_questions.md`.
 
 O documento está em estado de candidato à revisão do orientador. Valores finais
 de `K`, fonte principal de relevância, procedimento estatístico, tamanho mínimo
