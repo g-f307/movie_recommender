@@ -30,4 +30,5 @@ mlflow.db
 .dvc/cache/
 artifacts/
 reports/
+results/manifests/splits/
 datasets/*.csv

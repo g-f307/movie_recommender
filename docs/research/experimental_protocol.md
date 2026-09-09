@@ -320,6 +320,9 @@ sem conclusão confirmatória.
 
 ## 12. Particionamento e prevenção de leakage
 
+A implementação e os comandos correspondentes são documentados em
+[`experimental_splits.md`](experimental_splits.md).
+
 ### 12.1 Partições
 
 Os dados supervisionados serão particionados em treino, validação e teste final.

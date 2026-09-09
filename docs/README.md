@@ -6,6 +6,7 @@
 - [`research/experimental_protocol.md`](research/experimental_protocol.md): métodos, condições, métricas, replay temporal e regras de execução dos experimentos.
 - [`research/data_audit.md`](research/data_audit.md): relatório reproduzível sobre catálogo, dataset e feedback.
 - [`research/data_dictionary.md`](research/data_dictionary.md): origem, tipo lógico e finalidade dos campos auditados.
+- [`research/experimental_splits.md`](research/experimental_splits.md): estratégias de particionamento, manifestos e proteções contra leakage.
 - [`research/ROADMAP_EVOLUCAO_MOVIE_RECOMMENDER_ACM_SAC_2027.md`](research/ROADMAP_EVOLUCAO_MOVIE_RECOMMENDER_ACM_SAC_2027.md): plano de evolução científica e técnica do projeto.
 
 ## Artigo
