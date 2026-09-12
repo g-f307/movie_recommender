@@ -9,6 +9,7 @@
 - [`research/experimental_splits.md`](research/experimental_splits.md): estratégias de particionamento, manifestos e proteções contra leakage.
 - [`research/reproducibility.md`](research/reproducibility.md): configuração versionada, validação, diagnóstico e manifests de execução.
 - [`research/ranking_contract.md`](research/ranking_contract.md): tipos, invariantes e serialização comuns aos recomendadores B0–B6.
+- [`research/candidate_set.md`](research/candidate_set.md): elegibilidade, filtros e identidade do conjunto comum de candidatos.
 - [`research/ROADMAP_EVOLUCAO_MOVIE_RECOMMENDER_ACM_SAC_2027.md`](research/ROADMAP_EVOLUCAO_MOVIE_RECOMMENDER_ACM_SAC_2027.md): plano de evolução científica e técnica do projeto.
 
 ## Artigo
