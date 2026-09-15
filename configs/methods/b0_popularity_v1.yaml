@@ -1,0 +1,12 @@
+method: B0
+version: "1.0"
+frozen: true
+formula: bayesian_weighted_rating
+rating:
+  minimum: 0.0
+  maximum: 10.0
+  missing: catalog_mean
+votes:
+  minimum: 0
+  missing: zero
+  prior_strength_quantile: 0.60
