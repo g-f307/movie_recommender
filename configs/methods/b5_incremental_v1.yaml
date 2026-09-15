@@ -1,0 +1,10 @@
+method: B5
+version: "1.0"
+frozen: true
+formula: bounded_initial_plus_feedback_adjustment
+selection: {policy: a_priori_protocol_v1, fit_partition: none, holdout_used: false}
+initial_profile_config: configs/methods/b4_static_v1.yaml
+feedback_adjustment_weight: 0.5
+feature_weights: {genres: 1.0, directors: 0.75, keywords: 0.5, synopsis_terms: 0.25}
+missing_affinity: zero_adjustment
+score_bounds: [0.0, 1.0]
