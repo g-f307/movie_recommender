@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Incremental profile update policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["policy", "version", "frozen", "selection", "feedback", "update", "features", "text", "missing_metadata"],
+  "properties": {
+    "policy": {"const": "bounded_additive_decay"},
+    "version": {"type": "string", "minLength": 1},
+    "frozen": {"const": true},
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "fit_partition", "holdout_used"],
+      "properties": {
+        "policy": {"const": "a_priori_protocol_v1"},
+        "fit_partition": {"const": "none"},
+        "holdout_used": {"const": false}
+      }
+    },
+    "feedback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["like_direction", "dislike_direction", "marks_consumed"],
+      "properties": {
+        "like_direction": {"const": 1.0},
+        "dislike_direction": {"const": -1.0},
+        "marks_consumed": {"type": "boolean"}
+      }
+    },
+    "update": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["learning_rate", "decay", "minimum_affinity", "maximum_affinity"],
+      "properties": {
+        "learning_rate": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        "decay": {"type": "number", "minimum": 0, "maximum": 1},
+        "minimum_affinity": {"type": "number", "minimum": -1, "maximum": 0},
+        "maximum_affinity": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "features": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["genres", "directors", "keywords", "synopsis_terms"],
+      "properties": {
+        "genres": {"$ref": "#/$defs/feature"},
+        "directors": {"$ref": "#/$defs/feature"},
+        "keywords": {"$ref": "#/$defs/feature"},
+        "synopsis_terms": {"$ref": "#/$defs/textFeature"}
+      }
+    },
+    "text": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_token_length", "token_pattern"],
+      "properties": {
+        "minimum_token_length": {"type": "integer", "minimum": 1},
+        "token_pattern": {"const": "[a-z0-9]+"}
+      }
+    },
+    "missing_metadata": {"const": "ignore_feature"}
+  },
+  "$defs": {
+    "feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "weight"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "weight": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "textFeature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "weight", "maximum_terms_per_item"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "weight": {"type": "number", "minimum": 0, "maximum": 1},
+        "maximum_terms_per_item": {"type": "integer", "minimum": 1, "maximum": 100}
+      }
+    }
+  }
+}
