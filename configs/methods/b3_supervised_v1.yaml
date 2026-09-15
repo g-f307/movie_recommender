@@ -1,0 +1,13 @@
+method: B3
+version: "1.0"
+frozen: true
+score: positive_class_probability
+positive_class: 1
+threshold_role: classification_diagnostic_only
+label_source: heuristic_proxy_with_explicit_feedback_overrides
+fit_partition: train
+selection_partitions: [train, validation]
+holdout_role: final_diagnostic_evaluation_only
+missing_numeric: zero
+missing_categorical: __missing__
+unknown_category: ignore
