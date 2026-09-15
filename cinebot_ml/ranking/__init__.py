@@ -33,6 +33,17 @@ from cinebot_ml.ranking.popularity import (
     bayesian_popularity_score,
     load_popularity_config,
 )
+from cinebot_ml.ranking.tfidf import (
+    TfidfArtifact,
+    TfidfConfig,
+    TfidfConfigError,
+    TfidfRecommender,
+    build_movie_document,
+    build_profile_document,
+    fit_tfidf_artifact,
+    load_tfidf_config,
+    normalize_text,
+)
 
 __all__ = [
     "CandidateSet",
@@ -51,13 +62,22 @@ __all__ = [
     "RecommendationItem",
     "RecommendationRequest",
     "Recommender",
+    "TfidfArtifact",
+    "TfidfConfig",
+    "TfidfConfigError",
+    "TfidfRecommender",
     "build_candidate_set",
     "build_candidate_set_from_config",
     "build_content_profile",
     "build_item_content",
+    "build_movie_document",
+    "build_profile_document",
     "bayesian_popularity_score",
     "load_popularity_config",
     "content_similarity",
+    "fit_tfidf_artifact",
+    "load_tfidf_config",
     "load_content_config",
+    "normalize_text",
     "rank_scored_candidates",
 ]

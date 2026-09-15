@@ -1,8 +1,8 @@
 # Baselines experimentais
 
 Este documento registra as implementações dos métodos de referência B0--B3. A
-presente versão contém os baselines B0 e B1; os demais serão acrescentados pelas
-issues correspondentes sem modificar retroativamente contratos congelados.
+presente versão contém os baselines B0, B1 e B2; os demais serão acrescentados
+pelas issues correspondentes sem modificar retroativamente contratos congelados.
 
 ## B0 — Popularidade
 
@@ -167,3 +167,99 @@ refletir o comportamento real. O método também pode concentrar resultados em
 categorias majoritárias. Sua função experimental é servir como referência
 estática e interpretável para medir o ganho posterior de métodos textuais,
 híbridos e incrementais.
+
+## B2 — TF-IDF e similaridade de cosseno
+
+B2 mede a contribuição de uma representação textual esparsa. O texto de cada
+filme combina sinopse, gêneros canônicos e palavras-chave; o texto do perfil é
+formado somente pelos gêneros declarados autorizados pelo nível de cold start.
+Histórico e feedback incremental não participam do método.
+
+### Configuração congelada
+
+A especificação oficial está em `configs/methods/b2_tfidf_v1.yaml`, validada
+por JSON Schema e protegida por lock SHA-256. A versão 1 usa:
+
+- conversão para minúsculas e remoção Unicode de acentos;
+- unigramas e bigramas;
+- até 5.000 atributos;
+- `min_df=1`, frequência sublinear e norma L2;
+- nenhuma lista de stop words;
+- fallback de vetor zero para documentos vazios;
+- descarte de termos ausentes do vocabulário.
+
+Esses parâmetros são congelados antes da avaliação. Alterá-los requer uma nova
+versão; o lock da v1 não deve ser recalculado após observar resultados finais.
+
+### Ajuste e prevenção de leakage
+
+O vocabulário e os valores de IDF são ajustados exclusivamente por
+`fit_tfidf_artifact(..., partition="train")`. Qualquer tentativa de ajuste com
+`validation` ou `test` falha explicitamente. Candidatos de validação ou teste
+são apenas transformados pelo artefato previamente construído.
+
+O artefato JSON contém:
+
+- vocabulário e índices canônicos;
+- valores de IDF na ordem dos índices;
+- versão do método e hash da configuração;
+- hash do corpus de treino;
+- versão do scikit-learn;
+- `artifact_id` derivado de todo o conteúdo.
+
+O carregamento recalcula a identidade e rejeita artefatos adulterados. Como o
+arquivo é regenerável, sua localização operacional deve permanecer em uma
+pasta de resultados ignorada pelo Git; configuração, schema e código são os
+elementos versionados.
+
+### Perfil textual
+
+| Perfil | Texto utilizado por B2 |
+| --- | --- |
+| P0 | vazio |
+| P1 | primeiro gênero |
+| P2–P5 | até três gêneros ordenados |
+
+Os gêneros recebem repetições `[3, 2, 1]`, preservando a ordem de preferência
+antes do cálculo de TF-IDF. Década, popularidade, texto livre injetado e
+histórico não são utilizados por B2 v1; por isso, esses campos não conseguem
+reconstruir informação removida por um perfil de cold start.
+
+### Score e ordenação
+
+Para perfil `p` e filme `i`:
+
+```text
+score(i, p) = cos(TFIDF(p), TFIDF(i))
+```
+
+Como os vetores usam norma L2, o score pertence a `[0,1]` para as frequências
+não negativas usadas pelo método. Perfil vazio, item vazio ou perfil composto
+somente por termos desconhecidos recebe similaridade zero. Empates seguem o
+contrato comum e usam `movie_id` ascendente.
+
+### Uso
+
+```python
+from cinebot_ml.ranking import TfidfRecommender, fit_tfidf_artifact
+
+artifact = fit_tfidf_artifact(training_movies, partition="train")
+artifact.save(generated_artifact_path)
+
+request = candidate_set.attach_to_request(initial_request)
+recommender = TfidfRecommender(candidate_set, artifact)
+result = recommender.recommend(request)
+method_manifest = recommender.method_manifest()
+```
+
+O manifesto registra configuração, artefato, hash do corpus, tamanho do
+vocabulário, versão da biblioteca, partição de ajuste e `candidate_set_id`.
+
+### Limitações
+
+TF-IDF captura coincidência lexical, mas não equivalência semântica entre
+sinônimos ou conceitos relacionados. A ausência de stop words em português e o
+limite de atributos podem manter ruído ou descartar termos raros. Além disso, o
+perfil textual v1 é deliberadamente restrito aos gêneros declarados; isso torna
+B2 uma referência controlada, não uma representação completa dos interesses do
+usuário.
