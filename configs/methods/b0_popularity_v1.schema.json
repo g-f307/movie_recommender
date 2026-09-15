@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "B0 popularity baseline configuration v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["method", "version", "frozen", "formula", "rating", "votes"],
+  "properties": {
+    "method": {"const": "B0"},
+    "version": {"type": "string", "minLength": 1},
+    "frozen": {"const": true},
+    "formula": {"const": "bayesian_weighted_rating"},
+    "rating": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum", "maximum", "missing"],
+      "properties": {
+        "minimum": {"type": "number"},
+        "maximum": {"type": "number"},
+        "missing": {"const": "catalog_mean"}
+      }
+    },
+    "votes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum", "missing", "prior_strength_quantile"],
+      "properties": {
+        "minimum": {"type": "integer", "minimum": 0},
+        "missing": {"const": "zero"},
+        "prior_strength_quantile": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    }
+  }
+}
