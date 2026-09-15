@@ -55,6 +55,12 @@ from cinebot_ml.ranking.supervised import (
     load_supervised_config,
     validate_supervised_metadata,
 )
+from cinebot_ml.ranking.static_personalized import (
+    StaticPersonalizedConfig,
+    StaticPersonalizedConfigError,
+    StaticPersonalizedRecommender,
+    load_static_personalized_config,
+)
 from cinebot_ml.ranking.evaluation import (
     BenchmarkReport,
     BenchmarkUnit,
@@ -106,6 +112,9 @@ __all__ = [
     "SupervisedConfig",
     "SupervisedConfigError",
     "SupervisedRecommender",
+    "StaticPersonalizedConfig",
+    "StaticPersonalizedConfigError",
+    "StaticPersonalizedRecommender",
     "TfidfArtifact",
     "TfidfConfig",
     "TfidfConfigError",
@@ -132,6 +141,7 @@ __all__ = [
     "load_tfidf_config",
     "load_content_config",
     "load_supervised_config",
+    "load_static_personalized_config",
     "ndcg_at_k",
     "normalize_text",
     "precision_at_k",
