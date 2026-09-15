@@ -11,6 +11,7 @@
 - [`research/ranking_contract.md`](research/ranking_contract.md): tipos, invariantes e serialização comuns aos recomendadores B0–B6.
 - [`research/candidate_set.md`](research/candidate_set.md): elegibilidade, filtros e identidade do conjunto comum de candidatos.
 - [`research/baselines.md`](research/baselines.md): fórmulas, configurações e limitações dos métodos de referência.
+- [`research/ranking_evaluation.md`](research/ranking_evaluation.md): métricas Top-K, contrato de relevância e benchmark unificado B0–B3.
 - [`research/ROADMAP_EVOLUCAO_MOVIE_RECOMMENDER_ACM_SAC_2027.md`](research/ROADMAP_EVOLUCAO_MOVIE_RECOMMENDER_ACM_SAC_2027.md): plano de evolução científica e técnica do projeto.
 
 ## Artigo
