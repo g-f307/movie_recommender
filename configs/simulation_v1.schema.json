@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "frozen", "protocol_version", "conditions", "full_history_events", "feedback_rank", "logical_clock_step_seconds"],
+  "properties": {
+    "version": {"type": "string", "minLength": 1},
+    "frozen": {"const": true},
+    "protocol_version": {"const": "protocol-v1.0"},
+    "conditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["C0", "C1", "C2", "C3", "C4", "C5"],
+      "properties": {
+        "C0": {"const": 0},
+        "C1": {"const": 1},
+        "C2": {"const": 3},
+        "C3": {"const": 5},
+        "C4": {"const": 10},
+        "C5": {"const": "all"}
+      }
+    },
+    "full_history_events": {"type": "integer", "minimum": 1},
+    "feedback_rank": {"const": 1},
+    "logical_clock_step_seconds": {"type": "integer", "minimum": 1}
+  }
+}
