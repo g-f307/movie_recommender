@@ -1,0 +1,15 @@
+version: "1.0"
+frozen: true
+source: synthetic_user
+utility_model: latent_multifactor_v1
+response_model: seeded_logistic_v1
+selection: {policy: a_priori_protocol_v1, holdout_used: false}
+personas:
+  consistent: {genre_count: 3, concentration: 0.8, popularity_weight: 0.1, noise: 0.0, exploration: 0.0, contradiction: 0.0, temperature: 0.08}
+  noisy: {genre_count: 3, concentration: 0.7, popularity_weight: 0.1, noise: 0.18, exploration: 0.05, contradiction: 0.05, temperature: 0.18}
+  exploratory: {genre_count: 3, concentration: 0.5, popularity_weight: -0.1, noise: 0.08, exploration: 0.35, contradiction: 0.0, temperature: 0.16}
+  specific: {genre_count: 1, concentration: 1.0, popularity_weight: 0.0, noise: 0.02, exploration: 0.0, contradiction: 0.0, temperature: 0.06}
+  broad: {genre_count: 6, concentration: 0.45, popularity_weight: 0.05, noise: 0.05, exploration: 0.1, contradiction: 0.0, temperature: 0.2}
+  popularity_sensitive: {genre_count: 3, concentration: 0.55, popularity_weight: 0.4, noise: 0.04, exploration: 0.0, contradiction: 0.0, temperature: 0.12}
+  contradictory: {genre_count: 3, concentration: 0.7, popularity_weight: 0.1, noise: 0.05, exploration: 0.0, contradiction: 0.35, temperature: 0.14}
+cohort: {consistent: 20, noisy: 20, exploratory: 20, specific: 20, broad: 20, popularity_sensitive: 20, contradictory: 20}

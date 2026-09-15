@@ -1,0 +1,17 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,
+  "required":["version","frozen","source","utility_model","response_model","selection","personas","cohort"],
+  "properties":{
+    "version":{"type":"string","minLength":1},"frozen":{"const":true},"source":{"const":"synthetic_user"},
+    "utility_model":{"const":"latent_multifactor_v1"},"response_model":{"const":"seeded_logistic_v1"},
+    "selection":{"type":"object","required":["policy","holdout_used"],"additionalProperties":false,"properties":{"policy":{"const":"a_priori_protocol_v1"},"holdout_used":{"const":false}}},
+    "personas":{"type":"object","minProperties":5,"additionalProperties":{"$ref":"#/$defs/persona"}},
+    "cohort":{"type":"object","minProperties":5,"additionalProperties":{"type":"integer","minimum":1}}
+  },
+  "$defs":{"persona":{"type":"object","additionalProperties":false,"required":["genre_count","concentration","popularity_weight","noise","exploration","contradiction","temperature"],"properties":{
+    "genre_count":{"type":"integer","minimum":1},"concentration":{"type":"number","minimum":0,"maximum":1},
+    "popularity_weight":{"type":"number","minimum":-1,"maximum":1},"noise":{"type":"number","minimum":0,"maximum":1},
+    "exploration":{"type":"number","minimum":0,"maximum":1},"contradiction":{"type":"number","minimum":0,"maximum":1},
+    "temperature":{"type":"number","exclusiveMinimum":0,"maximum":1}
+  }}}
+}
