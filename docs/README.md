@@ -14,6 +14,7 @@
 - [`research/ranking_evaluation.md`](research/ranking_evaluation.md): métricas Top-K, contrato de relevância e benchmark unificado B0–B3.
 - [`research/personalization_contract.md`](research/personalization_contract.md): estado imutável, eventos de feedback e cadeia versionada de snapshots.
 - [`research/profile_update.md`](research/profile_update.md): política, equação e controles da atualização incremental do perfil.
+- [`research/synthetic_agents.md`](research/synthetic_agents.md): personas, preferências latentes e política reproduzível de feedback sintético.
 - [`research/ROADMAP_EVOLUCAO_MOVIE_RECOMMENDER_ACM_SAC_2027.md`](research/ROADMAP_EVOLUCAO_MOVIE_RECOMMENDER_ACM_SAC_2027.md): plano de evolução científica e técnica do projeto.
 
 ## Artigo
