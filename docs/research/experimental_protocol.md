@@ -229,8 +229,11 @@ B0–B5 são obrigatórios. B6 é condicional: sua fórmula deverá ser selecion
 treino/validação e congelada antes do teste final. Se isso não ocorrer, B6 será
 omitido e a ausência será registrada.
 
-Para B0, a fórmula exata será configurada e versionada na implementação. Para
-B1–B6, hiperparâmetros e pesos serão selecionados somente em treino/validação.
+Para B0, a fórmula congelada é a média bayesiana versionada em
+`configs/methods/b0_popularity_v1.yaml`: nota normalizada, quantidade de votos,
+média dos candidatos e quantil 0,60 de votos. A especificação completa está em
+`docs/research/baselines.md`. Para B1–B6, hiperparâmetros e pesos serão
+selecionados somente em treino/validação.
 
 ## 8. Condições de feedback
 
@@ -570,8 +573,8 @@ caminhos absolutos e conteúdo da `.env` são proibidos.
   de poder baseada no efeito esperado quando dados piloto estiverem disponíveis.
 - O split 60/20/20 poderá ser revisto antes do congelamento se a auditoria mostrar
   classes ou grupos insuficientes.
-- A fórmula exata de popularidade de B0 e os pesos de B1/B5/B6 serão definidos em
-  treino/validação e registrados na configuração.
+- Os pesos de B1/B5/B6 serão definidos em treino/validação e registrados na
+  configuração. A fórmula de B0 já está congelada e versionada.
 - O procedimento de julgamento humano, se adotado, exigirá protocolo de coleta,
   consentimento e governança próprios.
 - A publicação de dados, código e resultados depende de autorização
