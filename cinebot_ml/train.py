@@ -32,6 +32,10 @@ from cinebot_ml.modeling import (
     select_best_threshold,
 )
 from cinebot_ml.schema import FEATURE_COLUMNS
+from cinebot_ml.ranking.supervised import (
+    assert_supervised_fit_partition,
+    assert_supervised_selection_partition,
+)
 
 
 def build_group_cv(n_splits: int = 5):
@@ -45,6 +49,18 @@ def summarize_cv_metrics(metrics_per_fold: list[dict[str, float]]) -> tuple[dict
     means = {name: float(np.mean([fold[name] for fold in metrics_per_fold])) for name in metric_names}
     stds = {name: float(np.std([fold[name] for fold in metrics_per_fold])) for name in metric_names}
     return means, stds
+
+
+def supervised_selection_key(result: dict) -> tuple[float, float, float, float]:
+    """Ordena candidatos exclusivamente por métricas de validação."""
+
+    metrics = result["cv_metrics_mean"]
+    return (
+        metrics["f1"],
+        metrics["precision"],
+        metrics.get("average_precision", 0.0),
+        metrics["roc_auc"],
+    )
 
 
 def maybe_log_mlflow(run_name: str, model, metrics: dict, input_example: pd.DataFrame) -> str | None:
@@ -103,9 +119,9 @@ def main() -> None:
     y_test = test_df["relevante"]
     group_cv = build_group_cv(n_splits=5)
 
-    results = []
-    best_model = None
-    best_result = None
+    assert_supervised_fit_partition("train")
+    assert_supervised_selection_partition("validation")
+    validation_results = []
 
     for model_name, candidates in build_model_candidates().items():
         best_candidate = None
@@ -154,42 +170,34 @@ def main() -> None:
         if best_candidate is None:
             continue
 
-        pipeline = build_pipeline(create_model(model_name, best_candidate["params"]))
-        pipeline.fit(x_train, y_train)
-        test_probabilities = pipeline.predict_proba(x_test)[:, 1]
-        metrics = evaluate_probabilities(y_test, test_probabilities, best_candidate["threshold"])
-        predictions = (test_probabilities >= best_candidate["threshold"]).astype(int)
-        matrix = confusion_matrix(y_test, predictions, labels=[0, 1]).tolist()
-        run_id = maybe_log_mlflow(model_name, pipeline, metrics, x_train)
-        result = {
+        validation_results.append({
             "model_name": model_name,
-            "metrics": metrics,
-            "run_id": run_id,
-            "confusion_matrix": matrix,
             "best_params": best_candidate["params"],
             "threshold": best_candidate["threshold"],
             "cv_metrics_mean": best_candidate["metrics"],
             "cv_metrics_std": best_candidate["cv_metrics_std"],
             "cv_thresholds": best_candidate["cv_thresholds"],
-        }
-        results.append(result)
+        })
 
-        if best_result is None or (
-            metrics["f1"],
-            metrics["precision"],
-            metrics.get("average_precision", 0.0),
-            metrics.get("roc_auc", 0.0),
-        ) > (
-            best_result["metrics"]["f1"],
-            best_result["metrics"]["precision"],
-            best_result["metrics"].get("average_precision", 0.0),
-            best_result["metrics"].get("roc_auc", 0.0),
-        ):
-            best_model = pipeline
-            best_result = result
-
-    if best_model is None or best_result is None:
+    if not validation_results:
         raise RuntimeError("Nenhum modelo foi treinado com sucesso.")
+
+    # A família, os hiperparâmetros e o threshold são congelados antes de
+    # qualquer inferência no holdout final.
+    selected = max(validation_results, key=supervised_selection_key)
+    best_model = build_pipeline(create_model(selected["model_name"], selected["best_params"]))
+    best_model.fit(x_train, y_train)
+    test_probabilities = best_model.predict_proba(x_test)[:, 1]
+    test_metrics = evaluate_probabilities(y_test, test_probabilities, selected["threshold"])
+    predictions = (test_probabilities >= selected["threshold"]).astype(int)
+    matrix = confusion_matrix(y_test, predictions, labels=[0, 1]).tolist()
+    run_id = maybe_log_mlflow(selected["model_name"], best_model, test_metrics, x_train)
+    best_result = {
+        **selected,
+        "metrics": test_metrics,
+        "run_id": run_id,
+        "confusion_matrix": matrix,
+    }
 
     MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(best_model, MODEL_PATH)
@@ -230,12 +238,20 @@ def main() -> None:
 
     metadata = {
         "trained_at": datetime.now().isoformat(),
+        "method_version": "1.0",
         "model_name": MODEL_NAME,
         "winner_model": best_result["model_name"],
         "winner_metrics": best_result["metrics"],
         "winner_confusion_matrix": best_result["confusion_matrix"],
         "winner_params": best_result["best_params"],
         "winner_threshold": best_result["threshold"],
+        "feature_columns": list(FEATURE_COLUMNS),
+        "positive_class": 1,
+        "label_source": "heuristic_proxy_with_explicit_feedback_overrides",
+        "fit_partition": "train",
+        "selection_partitions": ["train", "validation"],
+        "frozen_before_holdout": True,
+        "classification_metrics_role": "diagnostic_only",
         "tracking_uri": MLFLOW_TRACKING_URI,
         "dataset_path": str(DATASET_PATH),
         "catalog_source": str(DEFAULT_DATA_PATH),
@@ -251,7 +267,7 @@ def main() -> None:
             "n_splits": 5,
             "group_column": "movie_id",
         },
-        "all_results": results,
+        "validation_results": validation_results,
         "challenge_mapping": {
             "student": "Gabriel de Sá",
             "project": "CineBot, curadoria de filmes",

@@ -1,8 +1,9 @@
 # Baselines experimentais
 
 Este documento registra as implementações dos métodos de referência B0--B3. A
-presente versão contém os baselines B0, B1 e B2; os demais serão acrescentados
-pelas issues correspondentes sem modificar retroativamente contratos congelados.
+presente versão contém os baselines B0, B1, B2 e B3. Métodos posteriores serão
+acrescentados pelas issues correspondentes sem modificar retroativamente
+contratos congelados.
 
 ## B0 — Popularidade
 
@@ -263,3 +264,109 @@ limite de atributos podem manter ruído ou descartar termos raros. Além disso, 
 perfil textual v1 é deliberadamente restrito aos gêneros declarados; isso torna
 B2 uma referência controlada, não uma representação completa dos interesses do
 usuário.
+
+## B3 — Supervisionado
+
+B3 adapta o pipeline supervisionado existente ao contrato comum de ranking. O
+score de cada candidato é a probabilidade prevista para a classe positiva de
+aderência ao perfil. Todos os candidatos recebem score; o threshold binário não
+remove itens e não participa da ordenação.
+
+### Natureza da supervisão
+
+Os rótulos atuais são majoritariamente derivados do proxy heurístico de
+aderência, com sobrescritas pontuais quando existe feedback explícito. Portanto,
+os scores de B3 não representam probabilidade validada de preferência humana.
+O resultado e o manifesto carregam o aviso e a origem
+`heuristic_proxy_with_explicit_feedback_overrides`.
+
+Métricas como accuracy, F1 e ROC-AUC permanecem diagnósticos da tarefa de
+classificação do proxy. Elas não substituem NDCG, Precision, Recall, MAP ou MRR
+no benchmark de recomendação.
+
+### Configuração e contrato do artefato
+
+A especificação oficial está em `configs/methods/b3_supervised_v1.yaml`,
+validada por JSON Schema e protegida por lock SHA-256. O artefato aceito por B3
+deve possuir:
+
+- modelo com `predict_proba` e classe positiva `1`;
+- schema de features exatamente igual ao código versionado;
+- família, parâmetros e threshold selecionados;
+- partição de fit igual a `train`;
+- partições de seleção iguais a `train` e `validation`;
+- confirmação de congelamento antes do holdout;
+- origem dos rótulos explicitamente declarada.
+
+O carregamento calcula SHA-256 do modelo e dos metadados. Ambos aparecem no
+manifesto, junto com configuração, família, parâmetros, threshold, features e
+`candidate_set_id`.
+
+### Seleção sem holdout
+
+O fluxo de treino avalia as famílias Logistic Regression, Linear SVC calibrado
+e ComplementNB por validação cruzada agrupada dentro da porção de treino. A
+família, os hiperparâmetros e o threshold são escolhidos pelas métricas dessa
+validação e congelados. Só então o vencedor é ajustado no treino e observado
+uma única vez no holdout para diagnóstico final.
+
+O teste final não participa da escolha entre famílias. As funções de guarda
+bloqueiam `fit` fora de treino e seleção no holdout.
+
+### Perfil e features ausentes
+
+B3 libera preferências progressivamente:
+
+| Perfil | Preferências fornecidas ao modelo |
+| --- | --- |
+| P0 | nenhuma; campos do perfil recebem `__missing__` |
+| P1 | primeiro gênero |
+| P2 | até três gêneros |
+| P3 | P2 e década |
+| P4–P5 | P3 e popularidade; feedback é ignorado por B3 |
+
+Campos proibidos de níveis posteriores são ignorados e não podem reconstruir a
+informação removida. Categorias desconhecidas são mantidas para o
+`OneHotEncoder(handle_unknown="ignore")`. Texto e categorias ausentes usam
+string vazia; números ausentes, inválidos ou infinitos usam zero. Isso preserva
+o candidato em vez de removê-lo unilateralmente.
+
+### Ranking
+
+```text
+score(i, p) = P(modelo; classe aderente = 1 | features(i, p))
+```
+
+Scores não finitos ou fora de `[0,1]` provocam falha explícita. Valores válidos
+são ordenados de forma decrescente, com desempate por `movie_id`. O threshold
+selecionado aparece somente em `score_components.diagnostic_threshold`.
+
+### Uso
+
+```python
+from cinebot_ml.ranking import SupervisedArtifact, SupervisedRecommender
+
+artifact = SupervisedArtifact.load(model_path, metadata_path)
+request = candidate_set.attach_to_request(initial_request)
+recommender = SupervisedRecommender(candidate_set, artifact)
+result = recommender.recommend(request)
+method_manifest = recommender.method_manifest()
+```
+
+### Situação do artefato legado
+
+O modelo produzido em junho de 2026 escolheu a família vencedora comparando
+métricas no conjunto de teste. Seus metadados também não registram o schema e o
+congelamento exigidos pela versão B3. Por esse motivo, o adaptador o rejeita
+deliberadamente. Ele precisa ser retreinado pelo fluxo corrigido antes de um
+benchmark B3 válido; renomear seus metadados não resolveria o leakage já
+ocorrido.
+
+### Limitações
+
+Mesmo após o retreino correto, B3 aprende principalmente uma fórmula proxy que
+já codifica correspondências entre gêneros, década e popularidade. O desempenho
+de classificação muito alto pode refletir essa circularidade, não qualidade de
+recomendação. B3 será uma referência supervisionada no estudo, e suas alegações
+devem permanecer limitadas até avaliação Top-K com uma fonte de relevância
+adequada.

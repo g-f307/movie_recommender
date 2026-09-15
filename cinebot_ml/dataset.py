@@ -626,12 +626,25 @@ def build_dataset(
 def build_inference_frame(
     catalog: list[dict],
     ranked_genres: list[str],
-    decade_preference: str,
-    popularity_preference: str,
+    decade_preference: str | None,
+    popularity_preference: str | None,
+    *,
+    allow_missing_preferences: bool = False,
 ) -> pd.DataFrame:
-    ranked_tuple = tuple(canonicalize_genre(genre) for genre in ranked_genres[:3])
-    normalized_decade = canonicalize_decade_preference(decade_preference) or "moderno"
-    normalized_popularity = canonicalize_popularity_preference(popularity_preference) or "popular"
+    normalized_genres = [canonicalize_genre(genre) for genre in ranked_genres[:3]]
+    if allow_missing_preferences:
+        normalized_genres.extend(["__missing__"] * (3 - len(normalized_genres)))
+    if len(normalized_genres) < 3:
+        raise ValueError("Três gêneros precisam ser informados para inferência.")
+    ranked_tuple = tuple(normalized_genres[:3])
+    normalized_decade = canonicalize_decade_preference(decade_preference)
+    normalized_popularity = canonicalize_popularity_preference(popularity_preference)
+    if allow_missing_preferences:
+        normalized_decade = normalized_decade or "__missing__"
+        normalized_popularity = normalized_popularity or "__missing__"
+    else:
+        normalized_decade = normalized_decade or "moderno"
+        normalized_popularity = normalized_popularity or "popular"
     catalog_context = build_catalog_context(catalog)
     rows = []
 

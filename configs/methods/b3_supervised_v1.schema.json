@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "B3 supervised baseline configuration v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["method", "version", "frozen", "score", "positive_class", "threshold_role", "label_source", "fit_partition", "selection_partitions", "holdout_role", "missing_numeric", "missing_categorical", "unknown_category"],
+  "properties": {
+    "method": {"const": "B3"},
+    "version": {"type": "string", "minLength": 1},
+    "frozen": {"const": true},
+    "score": {"const": "positive_class_probability"},
+    "positive_class": {"const": 1},
+    "threshold_role": {"const": "classification_diagnostic_only"},
+    "label_source": {"const": "heuristic_proxy_with_explicit_feedback_overrides"},
+    "fit_partition": {"const": "train"},
+    "selection_partitions": {"const": ["train", "validation"]},
+    "holdout_role": {"const": "final_diagnostic_evaluation_only"},
+    "missing_numeric": {"const": "zero"},
+    "missing_categorical": {"const": "__missing__"},
+    "unknown_category": {"const": "ignore"}
+  }
+}
