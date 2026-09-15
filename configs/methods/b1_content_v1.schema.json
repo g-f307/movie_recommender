@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "B1 content baseline configuration v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["method", "version", "frozen", "formula", "selection", "features", "missing_metadata", "active_weight_normalization"],
+  "properties": {
+    "method": {"const": "B1"},
+    "version": {"type": "string", "minLength": 1},
+    "frozen": {"const": true},
+    "formula": {"const": "weighted_content_similarity"},
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "fit_partition", "holdout_used"],
+      "properties": {
+        "policy": {"const": "a_priori_protocol_v1"},
+        "fit_partition": {"const": "none"},
+        "holdout_used": {"const": false}
+      }
+    },
+    "features": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["genres", "decade", "popularity", "directors", "keywords"],
+      "properties": {
+        "genres": {"$ref": "#/$defs/rankedFeature"},
+        "decade": {"$ref": "#/$defs/feature"},
+        "popularity": {"$ref": "#/$defs/feature"},
+        "directors": {"$ref": "#/$defs/feature"},
+        "keywords": {"$ref": "#/$defs/feature"}
+      }
+    },
+    "missing_metadata": {"const": "zero_component"},
+    "active_weight_normalization": {"const": true}
+  },
+  "$defs": {
+    "feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["weight"],
+      "properties": {"weight": {"type": "number", "exclusiveMinimum": 0}}
+    },
+    "rankedFeature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["weight", "preference_rank_weights"],
+      "properties": {
+        "weight": {"type": "number", "exclusiveMinimum": 0},
+        "preference_rank_weights": {
+          "type": "array",
+          "prefixItems": [
+            {"type": "number", "exclusiveMinimum": 0},
+            {"type": "number", "exclusiveMinimum": 0},
+            {"type": "number", "exclusiveMinimum": 0}
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        }
+      }
+    }
+  }
+}
