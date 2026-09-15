@@ -1,0 +1,13 @@
+version: "1.0"
+frozen: true
+protocol_version: protocol-v1.0
+conditions:
+  C0: 0
+  C1: 1
+  C2: 3
+  C3: 5
+  C4: 10
+  C5: all
+full_history_events: 15
+feedback_rank: 1
+logical_clock_step_seconds: 2
