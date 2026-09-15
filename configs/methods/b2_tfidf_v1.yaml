@@ -1,0 +1,18 @@
+method: B2
+version: "1.0"
+frozen: true
+formula: tfidf_cosine_similarity
+item_fields: [sinopse, genres, palavras_chave]
+profile_fields: [ranked_genres]
+vectorizer:
+  lowercase: true
+  strip_accents: unicode
+  stop_words: null
+  ngram_range: [1, 2]
+  max_features: 5000
+  min_df: 1
+  sublinear_tf: true
+  norm: l2
+empty_document: zero_vector
+unknown_term: ignored
+fit_partition: train
