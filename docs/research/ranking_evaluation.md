@@ -2,9 +2,13 @@
 
 ## Objetivo
 
-O módulo `cinebot_ml.ranking.evaluation` executa B0–B3 sob o mesmo contrato,
+O módulo `cinebot_ml.ranking.evaluation` executa B0–B5 sob o mesmo contrato,
 preserva resultados por unidade experimental e só depois produz agregações. As
 métricas de classificação do B3 não participam deste pipeline.
+
+O modo B0–B3 da Etapa 2 permanece compatível. Os métodos efetivamente executados
+vêm de `methods.enabled` ou de opções `--method` repetidas. B4 e B5 somente são
+instanciados quando habilitados.
 
 NDCG@5 é a métrica primária. Os valores oficiais de K são 5 e 10 e vêm de
 `configs/experiment_v1.yaml`; o executor rejeita outros valores.
@@ -118,10 +122,17 @@ Com `complete=true`, a lista precisa conter exatamente todos os candidatos
 calculados. Uma lista parcial deve declarar `complete=false` e ficará registrada
 sem métricas confirmatórias.
 
+Unidades que habilitam B4 ou B5 também informam `initial_snapshot` e
+`state_snapshot` no formato documentado em `personalization_contract.md`. Para
+evidência sintética, cada unidade registra ainda `agent_id`, `persona`,
+`agent_version`, `simulation_id`, `interaction` e `state_version`. O histórico da
+requisição deve corresponder exatamente ao snapshot; divergência ou estado
+futuro bloqueia a unidade.
+
 ## Comando
 
 ```bash
-python -m cinebot_ml.benchmark benchmark \
+.venv/bin/python -m cinebot_ml.benchmark benchmark \
   --units results/inputs/benchmark_units.json \
   --b2-artifact results/artifacts/b2_tfidf.json \
   --b3-model results/artifacts/b3_model.joblib \
@@ -129,14 +140,26 @@ python -m cinebot_ml.benchmark benchmark \
   --k 5 --k 10
 ```
 
+Para reproduzir apenas a configuração legada, acrescente `--method B0` até
+`--method B3`. Sem essas opções, o comando executa os métodos habilitados na
+configuração, atualmente B0–B5. Artefatos B2/B3 só são obrigatórios quando os
+respectivos métodos estão habilitados.
+
+Sequências produzidas pela simulação podem ser convertidas diretamente em
+unidades por `build_incremental_benchmark_units` e avaliadas por
+`run_incremental_benchmark`. Cada checkpoint vira uma unidade; todos os métodos
+recebem candidatos idênticos, B0–B4 recebem histórico vazio e somente B5 recebe
+o snapshot temporal permitido.
+
 O B2 deve ter sido ajustado somente em treino. O B3 deve ter sido retreinado
 pelo fluxo sem leakage e congelado antes do holdout. O comando apenas carrega os
 artefatos: ele não ajusta modelos, vocabulário, threshold ou hiperparâmetros.
 
 ## Saídas
 
-O `benchmark_id` é derivado da configuração, unidades, candidatos, relevância e
-manifests dos métodos. Execuções equivalentes produzem o mesmo ID.
+O `benchmark_id` é derivado da configuração, commit, unidades, candidatos,
+agentes, versões de estado, relevância e manifests dos métodos. Execuções
+equivalentes produzem o mesmo ID.
 
 As saídas regeneráveis seguem a configuração:
 
@@ -147,3 +170,9 @@ As saídas regeneráveis seguem a configuração:
 Arquivos existentes não são sobrescritos. Esses diretórios permanecem fora do
 versionamento; a evidência deve ser reconstruída a partir da configuração,
 artefatos congelados e arquivo de unidades.
+
+Agregações são separadas por método, condição, perfil, K, interação, conjunto
+candidato, fonte e versão da relevância. Dessa forma, interações sucessivas não
+são tratadas silenciosamente como observações independentes. Registros
+individuais — inclusive falhas, ausências e resultados negativos — permanecem
+no JSONL e na tabela individual.

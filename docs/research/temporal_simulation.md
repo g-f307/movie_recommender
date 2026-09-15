@@ -57,6 +57,11 @@ O método `run_many` aceita pares de cenário e agente, permitindo executar
 múltiplas seeds e personas. Comparações pareadas devem fornecer a mesma seed,
 agente e snapshot inicial aos métodos.
 
+Para avaliação unificada, `cinebot_ml.incremental_benchmark` transforma cada
+checkpoint em uma `BenchmarkUnit`. Relevâncias graduadas são calculadas por
+agente antes da agregação, e agente, persona, seed, condição, interação e versão
+do estado permanecem nos dados brutos.
+
 ## Execução
 
 No diretório do projeto:

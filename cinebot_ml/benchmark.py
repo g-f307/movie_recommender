@@ -1,4 +1,4 @@
-"""Ponto de entrada do benchmark offline B0--B3."""
+"""Ponto de entrada do benchmark offline unificado B0--B5."""
 
 from cinebot_ml.ranking.evaluation import main
 

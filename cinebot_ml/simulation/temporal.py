@@ -264,6 +264,7 @@ class TemporalSimulator:
     def _manifest(self, scenario: SimulationScenario, agent: SyntheticAgent) -> dict[str, Any]:
         return {
             "simulation_version": self.config.version,
+            "protocol_version": self.config.protocol_version,
             "simulation_config_sha256": self.config.source_sha256,
             "scenario": scenario.to_manifest(),
             "agent": agent.manifest(),

@@ -1,4 +1,4 @@
-"""Avaliação unificada e persistência dos resultados individuais B0--B3."""
+"""Avaliação unificada e persistência dos resultados individuais B0--B5."""
 
 from __future__ import annotations
 
@@ -97,12 +97,30 @@ class BenchmarkUnit:
     candidates: CandidateSet
     relevance: RelevanceJudgments
     recommenders: Mapping[str, Recommender]
+    agent_id: str | None = None
+    persona: str | None = None
+    agent_version: str | None = None
+    interaction: int = 0
+    state_version: int = 0
+    simulation_id: str | None = None
 
     def __post_init__(self) -> None:
         if not self.request.unit_id:
             raise RankingEvaluationError("A unidade de benchmark deve possuir unit_id.")
-        if set(self.recommenders) != {"B0", "B1", "B2", "B3"}:
-            raise RankingEvaluationError("O benchmark da Etapa 2 exige exatamente B0, B1, B2 e B3.")
+        methods = set(self.recommenders)
+        if not methods or not methods.issubset({f"B{index}" for index in range(6)}):
+            raise RankingEvaluationError("O benchmark aceita um conjunto não vazio entre B0 e B5.")
+        if isinstance(self.interaction, bool) or not isinstance(self.interaction, int) or self.interaction < 0:
+            raise RankingEvaluationError("interaction deve ser um inteiro não negativo.")
+        if isinstance(self.state_version, bool) or not isinstance(self.state_version, int) or self.state_version < 0:
+            raise RankingEvaluationError("state_version deve ser um inteiro não negativo.")
+        context = (self.agent_id, self.persona, self.agent_version, self.simulation_id)
+        if any(value is not None for value in context) and any(
+            not isinstance(value, str) or not value.strip() for value in context
+        ):
+            raise RankingEvaluationError("Contexto sintético deve informar agente, persona, versão e simulação.")
+        if self.agent_id is not None and self.relevance.source != "synthetic_user":
+            raise RankingEvaluationError("Agentes sintéticos exigem relevance_source=synthetic_user.")
         for method, recommender in self.recommenders.items():
             candidate_set = getattr(recommender, "candidates", None)
             if (
@@ -133,6 +151,12 @@ class IndividualEvaluation:
     relevance_id: str
     evaluation_status: str
     ranking_status: str
+    agent_id: str | None = None
+    persona: str | None = None
+    agent_version: str | None = None
+    interaction: int = 0
+    state_version: int = 0
+    simulation_id: str | None = None
     ranked_movie_ids: tuple[MovieId, ...] = ()
     scores: tuple[float, ...] = ()
     metrics: Mapping[str, float | None] = field(default_factory=dict)
@@ -172,6 +196,12 @@ def _benchmark_identity(
                 "relevance_source": unit.relevance.source,
                 "relevance_version": unit.relevance.version,
                 "relevance_complete": unit.relevance.complete,
+                "agent_id": unit.agent_id,
+                "persona": unit.persona,
+                "agent_version": unit.agent_version,
+                "interaction": unit.interaction,
+                "state_version": unit.state_version,
+                "simulation_id": unit.simulation_id,
                 "methods": {
                     method: {
                         "version": recommender.method_version,
@@ -213,6 +243,12 @@ def _evaluate_result(
         relevance_id=unit.relevance.relevance_id,
         evaluation_status=evaluation_status,
         ranking_status=result.status,
+        agent_id=unit.agent_id,
+        persona=unit.persona,
+        agent_version=unit.agent_version,
+        interaction=unit.interaction,
+        state_version=unit.state_version,
+        simulation_id=unit.simulation_id,
         ranked_movie_ids=ranking,
         scores=scores,
         metrics=metrics,
@@ -243,6 +279,12 @@ def _failure_record(
         relevance_id=unit.relevance.relevance_id,
         evaluation_status="ranking_failed",
         ranking_status="failed",
+        agent_id=unit.agent_id,
+        persona=unit.persona,
+        agent_version=unit.agent_version,
+        interaction=unit.interaction,
+        state_version=unit.state_version,
+        simulation_id=unit.simulation_id,
         error_type=type(error).__name__,
         error_message=str(error),
     )
@@ -252,13 +294,14 @@ def aggregate_individual_results(
     records: Sequence[IndividualEvaluation],
     units: Sequence[BenchmarkUnit],
 ) -> tuple[Mapping[str, Any], ...]:
-    groups: dict[tuple[str, str, str, int, str, str, str], list[IndividualEvaluation]] = {}
+    groups: dict[tuple[str, str, str, int, int, str, str, str], list[IndividualEvaluation]] = {}
     for record in records:
         key = (
             record.method,
             record.condition,
             record.profile,
             record.k,
+            record.interaction,
             record.candidate_set_id,
             record.relevance_source,
             record.relevance_version,
@@ -267,7 +310,7 @@ def aggregate_individual_results(
     candidates_by_id = {unit.candidates.candidate_set_id: unit.candidates.movie_ids for unit in units}
     output = []
     for key, values in sorted(groups.items()):
-        method, condition, profile, k, candidate_set_id, relevance_source, relevance_version = key
+        method, condition, profile, k, interaction, candidate_set_id, relevance_source, relevance_version = key
         successful = [value for value in values if value.ranking_status == "completed"]
         evaluated = [value for value in values if value.metrics]
         row: dict[str, Any] = {
@@ -275,6 +318,7 @@ def aggregate_individual_results(
             "condition": condition,
             "profile": profile,
             "k": k,
+            "interaction": interaction,
             "candidate_set_id": candidate_set_id,
             "relevance_source": relevance_source,
             "relevance_version": relevance_version,
@@ -305,12 +349,13 @@ def run_benchmark(
     k_values: Sequence[int],
     official_k_values: Sequence[int],
     config_sha256: str,
+    git_commit: str = "unavailable",
 ) -> BenchmarkReport:
     if not units:
         raise RankingEvaluationError("O benchmark exige ao menos uma unidade.")
     if not k_values or any(k not in official_k_values for k in k_values):
         raise RankingEvaluationError("K deve pertencer aos valores oficiais da configuração.")
-    identity = _benchmark_identity(units, k_values, config_sha256)
+    identity = {**_benchmark_identity(units, k_values, config_sha256), "git_commit": git_commit}
     benchmark_id = _canonical_hash(identity)[:20]
     records = []
     for unit in units:
@@ -322,6 +367,7 @@ def run_benchmark(
                     method_version=recommender.method_version,
                     candidate_movie_ids=unit.candidates.movie_ids,
                     k=k,
+                    history=unit.request.history if method == "B5" else (),
                 )
                 try:
                     result = recommender.recommend(request)
@@ -430,15 +476,20 @@ def load_benchmark_units(
     path: Path,
     *,
     config_path: Path,
-    b2_artifact_path: Path,
-    b3_model_path: Path,
-    b3_metadata_path: Path,
+    b2_artifact_path: Path | None = None,
+    b3_model_path: Path | None = None,
+    b3_metadata_path: Path | None = None,
+    methods: Sequence[str] | None = None,
 ) -> list[BenchmarkUnit]:
-    """Reconstrói unidades e B0--B3 a partir de um arquivo JSON declarativo."""
+    """Reconstrói unidades e métodos B0--B5 a partir de JSON declarativo."""
 
+    from cinebot_ml.experiment_config import load_config
+    from cinebot_ml.personalization import StateSnapshot
     from cinebot_ml.ranking.candidates import build_candidate_set_from_config
     from cinebot_ml.ranking.content import ContentRecommender
+    from cinebot_ml.ranking.incremental import IncrementalRecommender
     from cinebot_ml.ranking.popularity import PopularityRecommender
+    from cinebot_ml.ranking.static_personalized import StaticPersonalizedRecommender
     from cinebot_ml.ranking.supervised import SupervisedArtifact, SupervisedRecommender
     from cinebot_ml.ranking.tfidf import TfidfArtifact, TfidfRecommender
 
@@ -450,8 +501,20 @@ def load_benchmark_units(
         raise RankingEvaluationError("Arquivo de unidades deve conter uma lista 'units'.")
     source = str(payload.get("relevance_source") or "")
     version = str(payload.get("relevance_version") or "")
-    b2_artifact = TfidfArtifact.load(b2_artifact_path)
-    b3_artifact = SupervisedArtifact.load(b3_model_path, b3_metadata_path)
+    enabled = tuple(methods or load_config(config_path)["methods"]["enabled"])
+    invalid = sorted(set(enabled) - {f"B{index}" for index in range(6)})
+    if not enabled or invalid:
+        raise RankingEvaluationError(f"Método não suportado pelo benchmark: {invalid[0] if invalid else 'nenhum'}")
+    if "B2" in enabled and b2_artifact_path is None:
+        raise RankingEvaluationError("--b2-artifact é obrigatório quando B2 está habilitado.")
+    if "B3" in enabled and (b3_model_path is None or b3_metadata_path is None):
+        raise RankingEvaluationError("--b3-model e --b3-metadata são obrigatórios quando B3 está habilitado.")
+    b2_artifact = TfidfArtifact.load(b2_artifact_path) if "B2" in enabled else None
+    b3_artifact = (
+        SupervisedArtifact.load(b3_model_path, b3_metadata_path)
+        if "B3" in enabled
+        else None
+    )
     units = []
     for index, raw in enumerate(payload["units"]):
         if not isinstance(raw, Mapping) or not isinstance(raw.get("request"), Mapping):
@@ -476,13 +539,56 @@ def load_benchmark_units(
         relevance = RelevanceJudgments(
             source, values, bool(raw.get("complete", False)), version
         )
-        recommenders = {
-            "B0": PopularityRecommender(candidates),
-            "B1": ContentRecommender(candidates),
-            "B2": TfidfRecommender(candidates, b2_artifact),
-            "B3": SupervisedRecommender(candidates, b3_artifact),
+        state_snapshot = None
+        initial_snapshot = None
+        if set(enabled).intersection({"B4", "B5"}):
+            try:
+                initial_snapshot = StateSnapshot.from_dict(raw["initial_snapshot"])
+                state_snapshot = StateSnapshot.from_dict(raw["state_snapshot"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise RankingEvaluationError(
+                    f"Unidade {index} deve informar initial_snapshot e state_snapshot para B4/B5."
+                ) from exc
+            if initial_snapshot.state.version != 0:
+                raise RankingEvaluationError(f"Snapshot inicial da unidade {index} deve possuir versão zero.")
+            if initial_snapshot.state.state_id != state_snapshot.state.state_id and state_snapshot.state.version == 0:
+                raise RankingEvaluationError(f"Estado inicial divergente na unidade {index}.")
+            if initial_snapshot.state.subject_id != state_snapshot.state.subject_id:
+                raise RankingEvaluationError(f"Sujeito divergente na unidade {index}.")
+            expected_history = tuple(event.to_dict() for event in state_snapshot.state.history)
+            if base_request.history != expected_history:
+                raise RankingEvaluationError(f"Histórico diverge do snapshot na unidade {index}.")
+            context_fields = ("agent_id", "persona", "agent_version", "simulation_id")
+            if source == "synthetic_user" and any(not raw.get(field) for field in context_fields):
+                raise RankingEvaluationError(
+                    f"Unidade sintética {index} deve informar agente, persona, versão e simulação."
+                )
+        constructors = {
+            "B0": lambda: PopularityRecommender(candidates),
+            "B1": lambda: ContentRecommender(candidates),
+            "B2": lambda: TfidfRecommender(candidates, b2_artifact),
+            "B3": lambda: SupervisedRecommender(candidates, b3_artifact),
+            "B4": lambda: StaticPersonalizedRecommender(candidates, initial_snapshot.state),
+            "B5": lambda: IncrementalRecommender(candidates, state_snapshot),
         }
-        units.append(BenchmarkUnit(base_request, candidates, relevance, recommenders))
+        recommenders = {method: constructors[method]() for method in enabled}
+        state_version = int(raw.get("state_version", state_snapshot.state.version if state_snapshot else 0))
+        if state_snapshot is not None and state_version != state_snapshot.state.version:
+            raise RankingEvaluationError(f"state_version diverge do snapshot na unidade {index}.")
+        units.append(
+            BenchmarkUnit(
+                base_request,
+                candidates,
+                relevance,
+                recommenders,
+                agent_id=raw.get("agent_id"),
+                persona=raw.get("persona"),
+                agent_version=raw.get("agent_version"),
+                interaction=int(raw.get("interaction", 0)),
+                state_version=state_version,
+                simulation_id=raw.get("simulation_id"),
+            )
+        )
     return units
 
 
@@ -493,16 +599,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("command", choices=("benchmark",))
     parser.add_argument("--units", type=Path, required=True)
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
-    parser.add_argument("--b2-artifact", type=Path, required=True)
-    parser.add_argument("--b3-model", type=Path, required=True)
-    parser.add_argument("--b3-metadata", type=Path, required=True)
+    parser.add_argument("--b2-artifact", type=Path)
+    parser.add_argument("--b3-model", type=Path)
+    parser.add_argument("--b3-metadata", type=Path)
+    parser.add_argument("--method", action="append", choices=[f"B{i}" for i in range(6)])
     parser.add_argument("--k", type=int, action="append")
     return parser
 
 
 def main() -> None:
     from cinebot_ml.config import PROJECT_ROOT
-    from cinebot_ml.experiment_config import load_config, sha256_file
+    from cinebot_ml.experiment_config import environment_diagnostic, load_config, sha256_file
 
     args = build_parser().parse_args()
     try:
@@ -514,12 +621,14 @@ def main() -> None:
             b2_artifact_path=args.b2_artifact,
             b3_model_path=args.b3_model,
             b3_metadata_path=args.b3_metadata,
+            methods=args.method or config["methods"]["enabled"],
         )
         report = run_benchmark(
             units,
             k_values=k_values,
             official_k_values=config["k_values"],
             config_sha256=sha256_file(args.config),
+            git_commit=environment_diagnostic(PROJECT_ROOT)["git_commit"],
         )
         paths = write_benchmark_report_to_config(report, config, PROJECT_ROOT)
         print(json.dumps({key: str(value) for key, value in paths.items()}, indent=2))
