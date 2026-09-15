@@ -44,6 +44,17 @@ from cinebot_ml.ranking.tfidf import (
     load_tfidf_config,
     normalize_text,
 )
+from cinebot_ml.ranking.supervised import (
+    SupervisedArtifact,
+    SupervisedConfig,
+    SupervisedConfigError,
+    SupervisedRecommender,
+    assert_supervised_fit_partition,
+    assert_supervised_selection_partition,
+    build_supervised_frame,
+    load_supervised_config,
+    validate_supervised_metadata,
+)
 
 __all__ = [
     "CandidateSet",
@@ -62,6 +73,10 @@ __all__ = [
     "RecommendationItem",
     "RecommendationRequest",
     "Recommender",
+    "SupervisedArtifact",
+    "SupervisedConfig",
+    "SupervisedConfigError",
+    "SupervisedRecommender",
     "TfidfArtifact",
     "TfidfConfig",
     "TfidfConfigError",
@@ -72,12 +87,17 @@ __all__ = [
     "build_item_content",
     "build_movie_document",
     "build_profile_document",
+    "build_supervised_frame",
     "bayesian_popularity_score",
     "load_popularity_config",
     "content_similarity",
     "fit_tfidf_artifact",
+    "assert_supervised_fit_partition",
+    "assert_supervised_selection_partition",
     "load_tfidf_config",
     "load_content_config",
+    "load_supervised_config",
     "normalize_text",
+    "validate_supervised_metadata",
     "rank_scored_candidates",
 ]
