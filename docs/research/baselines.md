@@ -1,8 +1,8 @@
 # Baselines experimentais
 
 Este documento registra as implementações dos métodos de referência B0--B3. A
-presente versão contém o baseline B0; os demais serão acrescentados pelas issues
-correspondentes sem modificar retroativamente contratos congelados.
+presente versão contém os baselines B0 e B1; os demais serão acrescentados pelas
+issues correspondentes sem modificar retroativamente contratos congelados.
 
 ## B0 — Popularidade
 
@@ -82,3 +82,88 @@ Por não usar preferências, B0 não mede personalização. Sua função é esta
 uma referência simples e forte: métodos mais complexos só demonstram valor se
 superarem essa estratégia sob os mesmos candidatos e a mesma fonte de
 relevância.
+
+## B1 — Conteúdo estruturado
+
+B1 é o primeiro baseline personalizado. Ele compara preferências declaradas
+com os metadados estruturados dos filmes do `CandidateSet`, sem consultar ou
+aprender com histórico e feedback. Isso isola o valor da informação inicial do
+perfil antes da personalização incremental.
+
+### Configuração e seleção dos pesos
+
+A especificação oficial está em `configs/methods/b1_content_v1.yaml`, validada
+por JSON Schema e protegida por lock SHA-256. A versão 1 usa peso unitário para
+cada bloco de informação e pesos `[1,00; 0,65; 0,35]` para os três gêneros
+ordenados.
+
+Esses valores são uma política *a priori*, não o resultado de otimização. A
+implementação não ajusta vocabulário, normalização ou pesos aos dados e não usa
+o holdout. Uma seleção futura em treino/validação deverá gerar nova versão da
+configuração, sem recalcular o lock da v1 depois de observar o teste.
+
+### Informação autorizada por perfil
+
+| Perfil | Componentes usados por B1 |
+| --- | --- |
+| P0 | nenhum; todos os itens recebem score zero |
+| P1 | primeiro gênero declarado |
+| P2 | até três gêneros ordenados |
+| P3 | P2 e década |
+| P4 | P3 e preferência de popularidade |
+| P5 | P4 e, quando declarados estaticamente, diretores e palavras-chave |
+
+Campos de níveis posteriores são ignorados em perfis anteriores. B1 nunca
+deriva preferências do `history`; assim, likes, dislikes e eventos passados não
+alteram seu ranking. Diretores e palavras-chave de P5 devem vir do perfil
+inicial autorizado, não de reconstrução retrospectiva do feedback.
+
+### Representação e fórmula
+
+Gêneros, diretores e palavras-chave são conjuntos canônicos; década e faixa de
+popularidade são categorias. Para gêneros, o componente é a fração dos pesos
+ordenados cujos gêneros aparecem no filme. Década e popularidade usam igualdade
+binária. Diretores e palavras-chave usam Jaccard entre preferências e item.
+
+Para os componentes ativos `A`:
+
+```text
+score(i, p) = Σ[a ∈ A] peso(a) × similaridade(a, i, p) / Σ[a ∈ A] peso(a)
+```
+
+A normalização considera apenas atributos liberados e declarados pelo perfil.
+Isso permite comparar níveis de cold start sem punir P1 por não possuir década,
+por exemplo. Em P0, `A` é vazio e o score é zero; o desempate canônico por
+`movie_id` garante uma saída determinística.
+
+### Metadados ausentes e prevenção de leakage
+
+Metadado ausente produz similaridade zero apenas no componente correspondente,
+sem remover o filme do conjunto comum. Um ano ausente não é convertido
+artificialmente em “antes de 2000”. Listas ausentes de palavras-chave e diretor
+ausente são representados por conjuntos vazios.
+
+As transformações são determinísticas e não possuem etapa de ajuste. O método
+não acessa eventos futuros, não altera candidatos e não usa feedback. A
+identidade da configuração, o snapshot, a política sem fit, a proibição de uso
+do holdout e o `candidate_set_id` são registrados pelo `method_manifest`.
+
+### Uso
+
+```python
+from cinebot_ml.ranking import ContentRecommender
+
+request = candidate_set.attach_to_request(initial_request)
+recommender = ContentRecommender(candidate_set)
+result = recommender.recommend(request)
+method_manifest = recommender.method_manifest()
+```
+
+### Limitações
+
+B1 depende da cobertura e qualidade dos metadados. Similaridade estruturada não
+captura nuances semânticas da sinopse, e preferências declaradas podem não
+refletir o comportamento real. O método também pode concentrar resultados em
+categorias majoritárias. Sua função experimental é servir como referência
+estática e interpretável para medir o ganho posterior de métodos textuais,
+híbridos e incrementais.
