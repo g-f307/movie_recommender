@@ -1,7 +1,7 @@
 # Baselines experimentais
 
-Este documento registra as implementações dos métodos de referência B0--B3. A
-presente versão contém os baselines B0, B1, B2 e B3. Métodos posteriores serão
+Este documento registra as implementações dos métodos de referência B0--B4. A
+presente versão contém os baselines B0, B1, B2, B3 e B4. Métodos posteriores serão
 acrescentados pelas issues correspondentes sem modificar retroativamente
 contratos congelados.
 
@@ -370,3 +370,92 @@ de classificação muito alto pode refletir essa circularidade, não qualidade d
 recomendação. B3 será uma referência supervisionada no estudo, e suas alegações
 devem permanecer limitadas até avaliação Top-K com uma fonte de relevância
 adequada.
+
+## B4 — Personalização estática
+
+B4 é o controle personalizado estático do experimento incremental. Ele fica
+vinculado a um `UserState`, utiliza exclusivamente seu `initial_profile` e
+ignora `learned_preferences`, histórico e alterações posteriores do perfil
+transportadas pela requisição.
+
+Essa propriedade permite comparar B4 e B5 sem confundir o valor do perfil
+declarado com o valor marginal do feedback. Os dois métodos poderão partir do
+mesmo estado inicial; apenas B5 reagirá às interações posteriores.
+
+### Diferença entre B1 e B4
+
+B1 é um baseline de conteúdo que extrai o perfil autorizado de cada
+`RecommendationRequest`. B4 reutiliza a mesma representação estruturada e a
+mesma regra de similaridade, mas sua fonte é o perfil inicial imutável do estado
+experimental. Assim, mudar `request.profile_data` ou acrescentar eventos não
+altera B4.
+
+Essa separação é intencional. B1 compara estratégias de representação; B4 é o
+grupo de controle direto para medir o efeito da atualização incremental de B5.
+
+### Configuração e seleção dos pesos
+
+A especificação oficial está em `configs/methods/b4_static_v1.yaml`, validada
+por JSON Schema e protegida por lock SHA-256. A configuração declara:
+
+- método e versão;
+- fonte `immutable_initial_profile`;
+- fórmula `weighted_static_profile_similarity`;
+- pesos dos blocos de conteúdo;
+- pesos ordenados dos gêneros;
+- fallback canônico de P0;
+- ausência de fit e proibição do holdout para seleção.
+
+Os pesos unitários dos blocos e os pesos de gênero `[1,00; 0,65; 0,35]` são uma
+política *a priori* do protocolo v1. Eles não foram validados empiricamente e
+não podem ser apresentados como pesos ótimos. Qualquer seleção futura deve usar
+somente treino e validação e produzir uma nova versão.
+
+### Informação utilizada
+
+| Perfil | Componentes do `initial_profile` |
+| --- | --- |
+| P0 | nenhum; score zero e desempate por `movie_id` |
+| P1 | primeiro gênero declarado |
+| P2 | até três gêneros ordenados |
+| P3 | P2 e década |
+| P4 | P3 e preferência de popularidade |
+| P5 | P4, diretores e palavras-chave declarados |
+
+Campos ausentes não são inferidos. Metadado ausente no candidato produz zero
+somente no componente correspondente e não remove unilateralmente o filme.
+
+### Fórmula
+
+Para os componentes declarados e autorizados `A`:
+
+```text
+score_B4(i, s0) = Σ[a ∈ A] peso(a) × similaridade(a, i, s0)
+                  / Σ[a ∈ A] peso(a)
+```
+
+`s0` é o perfil inicial preservado no estado. Gêneros usam correspondência
+ponderada por posição; década e popularidade usam igualdade; diretores e
+palavras-chave usam Jaccard. Empates seguem a ordenação canônica do contrato.
+
+### Uso
+
+```python
+from cinebot_ml.ranking import StaticPersonalizedRecommender
+
+request = candidate_set.attach_to_request(initial_request)
+recommender = StaticPersonalizedRecommender(candidate_set, user_state)
+result = recommender.recommend(request)
+method_manifest = recommender.method_manifest()
+```
+
+O `unit_id` da requisição deve corresponder ao `subject_id` do estado. O
+manifesto registra configuração, fórmula, pesos, política *a priori*, identidade
+do estado observado, versão e ausência de uso do holdout.
+
+### Limitações
+
+B4 não aprende e não representa mudança de preferência. Sua qualidade depende
+da cobertura do perfil inicial e dos metadados. Como compartilha a função de
+similaridade estruturada de B1, não constitui uma nova técnica de recomendação;
+sua contribuição é metodológica, como controle estático pareado para B5.
