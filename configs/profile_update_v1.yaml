@@ -1,0 +1,34 @@
+policy: bounded_additive_decay
+version: "1.0"
+frozen: true
+selection:
+  policy: a_priori_protocol_v1
+  fit_partition: none
+  holdout_used: false
+feedback:
+  like_direction: 1.0
+  dislike_direction: -1.0
+  marks_consumed: true
+update:
+  learning_rate: 0.25
+  decay: 0.95
+  minimum_affinity: -1.0
+  maximum_affinity: 1.0
+features:
+  genres:
+    enabled: true
+    weight: 1.0
+  directors:
+    enabled: true
+    weight: 0.75
+  keywords:
+    enabled: true
+    weight: 0.50
+  synopsis_terms:
+    enabled: true
+    weight: 0.25
+    maximum_terms_per_item: 20
+text:
+  minimum_token_length: 3
+  token_pattern: "[a-z0-9]+"
+missing_metadata: ignore_feature
