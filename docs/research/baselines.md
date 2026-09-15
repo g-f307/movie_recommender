@@ -1,7 +1,7 @@
 # Baselines experimentais
 
-Este documento registra as implementações dos métodos de referência B0--B4. A
-presente versão contém os baselines B0, B1, B2, B3 e B4. Métodos posteriores serão
+Este documento registra as implementações dos métodos de referência B0--B5. A
+presente versão contém os baselines B0, B1, B2, B3, B4 e B5. Métodos posteriores serão
 acrescentados pelas issues correspondentes sem modificar retroativamente
 contratos congelados.
 
@@ -459,3 +459,45 @@ B4 não aprende e não representa mudança de preferência. Sua qualidade depend
 da cobertura do perfil inicial e dos metadados. Como compartilha a função de
 similaridade estruturada de B1, não constitui uma nova técnica de recomendação;
 sua contribuição é metodológica, como controle estático pareado para B5.
+
+## B5 — Personalização incremental
+
+B5 é o método incremental central do estudo. Ele recebe um `StateSnapshot`,
+calcula o mesmo score inicial de B4 e acrescenta um ajuste derivado das
+afinidades aprendidas pelo `ProfileUpdater`. O recomendador não modifica o
+estado; atualização e ranking são operações separadas.
+
+### Configuração e fórmula
+
+`configs/methods/b5_incremental_v1.yaml` é validada por schema e lock SHA-256.
+Os parâmetros são definidos *a priori*, sem seleção pelo holdout. Para item `i`
+e estado `s_t`:
+
+```text
+adjustment(i,s_t) = média ponderada das afinidades dos atributos de i
+score_B5(i,s_t) = clip(score_B4(i,s_0) + 0,5 × adjustment(i,s_t), 0, 1)
+```
+
+Gêneros, diretores, palavras-chave e termos da sinopse usam pesos 1,00, 0,75,
+0,50 e 0,25. Atributos sem afinidade observada produzem ajuste zero. Assim, B5
+é exatamente equivalente a B4 antes do primeiro feedback; likes elevam itens
+compatíveis e dislikes os penalizam.
+
+### Controles
+
+- somente o snapshot fornecido participa do ranking;
+- o timestamp do estado não pode ser posterior ao da requisição;
+- `unit_id` deve corresponder ao sujeito do estado;
+- itens consumidos não podem permanecer no `CandidateSet`;
+- afinidades devem ser numéricas, finitas e estar em `[-1,1]`;
+- scores finais permanecem em `[0,1]` e empates usam `movie_id`;
+- o manifesto registra estado, versão, configuração e candidatos;
+- C0–C5 utilizam o mesmo contrato, variando apenas o snapshot observado.
+
+### Limitações
+
+B5 herda as limitações da similaridade estruturada e da política linear de
+atualização. O peso `0,5` não é ótimo conhecido, e saturação pode esconder
+efeitos após muitas interações. O método não recebe preferências latentes dos
+agentes sintéticos e seus resultados não devem ser interpretados como evidência
+humana sem validação externa.

@@ -1,0 +1,14 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,
+  "required":["method","version","frozen","formula","selection","initial_profile_config","feedback_adjustment_weight","feature_weights","missing_affinity","score_bounds"],
+  "properties":{
+    "method":{"const":"B5"},"version":{"type":"string","minLength":1},"frozen":{"const":true},
+    "formula":{"const":"bounded_initial_plus_feedback_adjustment"},
+    "selection":{"type":"object","additionalProperties":false,"required":["policy","fit_partition","holdout_used"],"properties":{"policy":{"const":"a_priori_protocol_v1"},"fit_partition":{"const":"none"},"holdout_used":{"const":false}}},
+    "initial_profile_config":{"const":"configs/methods/b4_static_v1.yaml"},
+    "feedback_adjustment_weight":{"type":"number","minimum":0,"maximum":1},
+    "feature_weights":{"type":"object","additionalProperties":false,"required":["genres","directors","keywords","synopsis_terms"],"properties":{"genres":{"type":"number","minimum":0},"directors":{"type":"number","minimum":0},"keywords":{"type":"number","minimum":0},"synopsis_terms":{"type":"number","minimum":0}}},
+    "missing_affinity":{"const":"zero_adjustment"},
+    "score_bounds":{"type":"array","prefixItems":[{"const":0.0},{"const":1.0}],"items":false,"minItems":2,"maxItems":2}
+  }
+}

@@ -61,6 +61,7 @@ from cinebot_ml.ranking.static_personalized import (
     StaticPersonalizedRecommender,
     load_static_personalized_config,
 )
+from cinebot_ml.ranking.incremental import IncrementalConfig, IncrementalConfigError, IncrementalRecommender, load_incremental_config
 from cinebot_ml.ranking.evaluation import (
     BenchmarkReport,
     BenchmarkUnit,
@@ -101,6 +102,9 @@ __all__ = [
     "PopularityRecommender",
     "ItemContent",
     "IndividualEvaluation",
+    "IncrementalConfig",
+    "IncrementalConfigError",
+    "IncrementalRecommender",
     "RankingResult",
     "RankingEvaluationError",
     "RankingMetricError",
@@ -140,6 +144,7 @@ __all__ = [
     "assert_supervised_selection_partition",
     "load_tfidf_config",
     "load_content_config",
+    "load_incremental_config",
     "load_supervised_config",
     "load_static_personalized_config",
     "ndcg_at_k",
