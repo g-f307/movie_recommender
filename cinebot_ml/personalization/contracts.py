@@ -10,10 +10,8 @@ from datetime import datetime, timezone
 from types import MappingProxyType
 from typing import Any, Mapping
 
-from cinebot_ml.ranking.contracts import MovieId
-
-
 SCHEMA_VERSION = "1.0"
+MovieId = int | str
 FEEDBACK_VALUES = {"like", "dislike"}
 IDENTITY_KINDS = {"synthetic", "pseudonymous"}
 FEEDBACK_SOURCES = {"real_feedback", "synthetic_user", "human_judgment"}
