@@ -269,7 +269,17 @@ def environment_diagnostic(project_root: Path = PROJECT_ROOT) -> dict[str, Any]:
     }
 
 
-def build_execution_manifest(config: Mapping[str, Any], *, method: str, condition: str, profile: str, seed: int, run: int, project_root: Path = PROJECT_ROOT) -> dict[str, Any]:
+def build_execution_manifest(
+    config: Mapping[str, Any],
+    *,
+    method: str,
+    condition: str,
+    profile: str,
+    seed: int,
+    run: int,
+    project_root: Path = PROJECT_ROOT,
+    method_manifest: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     if method not in config["methods"]["enabled"]:
         raise ConfigValidationError(f"Método não habilitado: {method}")
     if condition not in config["conditions"] or profile not in config["profiles"]:
@@ -284,6 +294,8 @@ def build_execution_manifest(config: Mapping[str, Any], *, method: str, conditio
         "config_sha256": _canonical_hash(config), "inputs": inputs, "git_commit": _git_value("rev-parse", "HEAD", project_root=project_root),
         "method": method, "condition": condition, "profile": profile, "seed": seed, "run": run,
     }
+    if method_manifest is not None:
+        identity["method_manifest"] = dict(method_manifest)
     return {
         "manifest_version": "1.0", "execution_id": _canonical_hash(identity)[:20],
         "created_at_utc": datetime.now(timezone.utc).isoformat(), **identity,
