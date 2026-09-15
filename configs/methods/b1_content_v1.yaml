@@ -20,4 +20,3 @@ features:
     weight: 1.0
 missing_metadata: zero_component
 active_weight_normalization: true
-
