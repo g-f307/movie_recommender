@@ -15,23 +15,26 @@ NDCG@5 é a métrica primária. Os valores oficiais de K são 5 e 10 e vêm de
 
 ## Métricas
 
-O módulo `cinebot_ml.ranking.metrics` implementa:
+Os módulos `cinebot_ml.ranking.metrics` e
+`cinebot_ml.ranking.discovery_metrics` implementam:
 
 - Precision@K, Recall@K e F1@K;
 - NDCG@K com ganho `2^relevância - 1`;
 - MAP@K;
 - MRR@K;
 - Hit Rate@K;
+- diversidade intra-lista, novidade, exposição e viés de popularidade;
+- repetição, sobreposição e variação de posição entre interações;
 - cobertura do catálogo pela união dos rankings das unidades.
 
 Relevância binária usa valores zero ou positivos. NDCG também aceita graus não
 negativos. Rankings duplicados, julgamentos negativos ou não finitos e itens
 fora do catálogo são rejeitados.
 
-Diversidade e novidade já aparecem no contrato com valor nulo. Elas exigem,
-respectivamente, representação de distância entre itens e probabilidade de
-exposição/popularidade versionada; não são inferidas silenciosamente nesta
-etapa.
+As fórmulas, intervalos, referência obrigatória de treino e casos nulos das
+métricas de descoberta estão fixados em
+[`discovery_metrics.md`](discovery_metrics.md). A identidade da distribuição de
+popularidade acompanha cada registro individual e o manifesto do benchmark.
 
 ## Casos sem evidência suficiente
 
@@ -43,8 +46,10 @@ Ausência não vira relevância zero. Cada unidade recebe um estado:
 - `incomplete_judgments`: apenas parte do conjunto foi julgada;
 - `ranking_failed`: o método falhou antes da avaliação.
 
-Nos dois casos sem julgamentos completos, as métricas ficam ausentes e a
-unidade continua no arquivo bruto. Quando não há item relevante, Precision, MRR
+Nos dois casos sem julgamentos completos, as métricas de relevância ficam
+ausentes e a unidade continua no arquivo bruto; métricas independentes da
+relevância ainda podem existir quando seus metadados estão completos. Quando
+não há item relevante, Precision, MRR
 e Hit Rate são zero, enquanto Recall, F1, NDCG e MAP ficam nulos por serem
 indefinidos. As contagens desses estados aparecem na agregação.
 
