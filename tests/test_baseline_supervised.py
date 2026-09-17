@@ -8,6 +8,7 @@ import joblib
 import numpy as np
 
 from cinebot_ml.experiment_config import build_execution_manifest, load_config
+from tests.experiment_helpers import materialized_experiment_inputs
 from cinebot_ml.ranking import (
     CandidateSet,
     EligibilityPolicy,
@@ -291,10 +292,12 @@ class SupervisedBaselineTests(unittest.TestCase):
         self.assertEqual(manifest["diagnostic_threshold"], 0.7)
         self.assertIn("heuristic_proxy", manifest["label_source"])
         self.assertTrue(manifest["frozen_before_holdout"])
-        execution = build_execution_manifest(
-            load_config(), method="B3", condition="C0", profile="P4", seed=42, run=1,
-            method_manifest=manifest,
-        )
+        config = load_config()
+        with materialized_experiment_inputs(config) as project_root:
+            execution = build_execution_manifest(
+                config, method="B3", condition="C0", profile="P4", seed=42,
+                run=1, method_manifest=manifest, project_root=project_root,
+            )
         self.assertEqual(execution["method_manifest"], manifest)
 
 

@@ -7,6 +7,7 @@ from pathlib import Path
 import yaml
 
 from cinebot_ml.experiment_config import build_execution_manifest, load_config
+from tests.experiment_helpers import materialized_experiment_inputs
 from cinebot_ml.personalization import FeedbackEvent, UserState
 from cinebot_ml.ranking import (
     CandidateSet,
@@ -235,15 +236,12 @@ class StaticPersonalizedBaselineTests(unittest.TestCase):
         self.assertEqual(manifest["config_snapshot"]["selection"]["policy"], "a_priori_protocol_v1")
         self.assertIn("features", manifest["config_snapshot"])
         self.assertFalse(manifest["holdout_used_for_selection"])
-        execution = build_execution_manifest(
-            load_config(),
-            method="B4",
-            condition="C0",
-            profile="P4",
-            seed=42,
-            run=1,
-            method_manifest=manifest,
-        )
+        config = load_config()
+        with materialized_experiment_inputs(config) as project_root:
+            execution = build_execution_manifest(
+                config, method="B4", condition="C0", profile="P4", seed=42,
+                run=1, method_manifest=manifest, project_root=project_root,
+            )
         self.assertEqual(execution["method_manifest"], manifest)
 
 

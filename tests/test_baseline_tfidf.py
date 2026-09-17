@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from cinebot_ml.experiment_config import build_execution_manifest, load_config
+from tests.experiment_helpers import materialized_experiment_inputs
 from cinebot_ml.ranking import (
     CandidateSet,
     EligibilityPolicy,
@@ -204,15 +205,12 @@ class TfidfBaselineTests(unittest.TestCase):
         self.assertEqual(manifest["fit_partition"], "train")
         self.assertFalse(manifest["holdout_used_for_fit"])
         self.assertGreater(manifest["vocabulary_size"], 0)
-        execution = build_execution_manifest(
-            load_config(),
-            method="B2",
-            condition="C0",
-            profile="P1",
-            seed=42,
-            run=1,
-            method_manifest=manifest,
-        )
+        config = load_config()
+        with materialized_experiment_inputs(config) as project_root:
+            execution = build_execution_manifest(
+                config, method="B2", condition="C0", profile="P1", seed=42,
+                run=1, method_manifest=manifest, project_root=project_root,
+            )
         self.assertEqual(execution["method_manifest"], manifest)
 
 

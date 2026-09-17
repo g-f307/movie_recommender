@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from cinebot_ml.experiment_config import build_execution_manifest, load_config
+from tests.experiment_helpers import materialized_experiment_inputs
 from cinebot_ml.ranking.candidates import CandidateSet, EligibilityPolicy
 from cinebot_ml.ranking.contracts import ContractValidationError, RecommendationRequest, Recommender
 from cinebot_ml.ranking.popularity import (
@@ -162,15 +163,11 @@ class PopularityBaselineTests(unittest.TestCase):
         self.assertEqual(len(method_manifest["config_sha256"]), 64)
         self.assertIn("catalog_mean", method_manifest["derived_parameters"])
         config = load_config()
-        execution = build_execution_manifest(
-            config,
-            method="B0",
-            condition="C0",
-            profile="P0",
-            seed=42,
-            run=1,
-            method_manifest=method_manifest,
-        )
+        with materialized_experiment_inputs(config) as project_root:
+            execution = build_execution_manifest(
+                config, method="B0", condition="C0", profile="P0", seed=42,
+                run=1, method_manifest=method_manifest, project_root=project_root,
+            )
         self.assertEqual(execution["method_manifest"], method_manifest)
 
 
