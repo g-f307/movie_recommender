@@ -19,6 +19,7 @@ from cinebot_ml.ranking import (
     build_candidate_set,
     run_benchmark,
 )
+from cinebot_ml.ranking.discovery_metrics import PopularityReference
 from cinebot_ml.simulation import SimulationResult, SyntheticAgent
 
 
@@ -48,6 +49,7 @@ def build_incremental_benchmark_units(
     *,
     methods: Sequence[str] = ("B4", "B5"),
     factories: Mapping[str, RecommenderFactory] | None = None,
+    popularity_reference: PopularityReference | None = None,
 ) -> tuple[BenchmarkUnit, ...]:
     """Converte cada checkpoint da trajetória em uma unidade não agregada."""
     enabled = tuple(methods)
@@ -131,6 +133,7 @@ def build_incremental_benchmark_units(
                 interaction=interaction,
                 state_version=snapshot.state.version,
                 simulation_id=simulation.simulation_id,
+                popularity_reference=popularity_reference,
             )
         )
     return tuple(units)
@@ -147,9 +150,11 @@ def run_incremental_benchmark(
     config_sha256: str,
     git_commit: str = "unavailable",
     factories: Mapping[str, RecommenderFactory] | None = None,
+    popularity_reference: PopularityReference | None = None,
 ) -> BenchmarkReport:
     units = build_incremental_benchmark_units(
-        simulation, catalog, agent, methods=methods, factories=factories
+        simulation, catalog, agent, methods=methods, factories=factories,
+        popularity_reference=popularity_reference,
     )
     if not units:
         raise IncrementalBenchmarkError("A simulação não possui checkpoints avaliáveis.")
