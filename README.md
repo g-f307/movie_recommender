@@ -4,23 +4,28 @@
 
 Upgrade do `CineBot, curadoria de filmes` para o `Desafio 02 - Upgrade do Bot Pessoal com ML`. O projeto preserva os três bots originais do Módulo 1 e adiciona uma camada de Machine Learning para recomendar filmes a partir de `3 gêneros ranqueados pelo usuário`, mais filtros de `década` e `popularidade`, como indicado na Seção 8 do enunciado para `Gabriel de Sá`.
 
-Nesta versão, o enquadramento metodológico é: `modelo supervisionado de aderência ao perfil declarado` para cold start, complementado por `personalização incremental com feedback real por user_id`.
+Nesta versão, o repositório também funciona como plataforma experimental para
+avaliar personalização incremental em cold start. A evidência principal do
+estudo é offline e sintética; feedback real permanece escasso e sempre é
+identificado separadamente.
 
 ## Arquitetura
 
-O fluxo agora ficou dividido em seis partes:
+O fluxo está dividido entre aplicações operacionais e infraestrutura científica:
 
 1. `gabriel-scrapper/`
    Coleta filmes do TMDB com BotCity Web, prioriza sinopses em `pt-BR`, limita excesso de franquias via coleção do TMDB, extrai diretor, gêneros, streaming e gera `data/filmes.json`.
 2. `gabriel-curadoria/`
    Lê a base coletada e monta uma fila local em `data/fila_curadoria.json`. O envio ao DataPool do Maestro ficou opcional.
-3. `cinebot_ml/dataset.py`
-   Gera o dataset supervisionado `datasets/movie_preferences.csv` a partir do catálogo coletado e dos perfis de preferência, marcando quando o rótulo vem do proxy heurístico e quando foi sobrescrito por feedback real.
-4. `cinebot_ml/train.py`
-   Compara `3 algoritmos distintos` com `Pipeline + ColumnTransformer`, aplica validação cruzada por grupos no treino, registra experimentos no MLflow e promove o vencedor para `@production`.
-5. `main.py`
+3. `cinebot_ml/`
+   Implementa dados, splits, B0–B5, métricas Top-K, personalização, agentes sintéticos, replay C0–C5 e benchmark unificado.
+4. `configs/`
+   Contém parâmetros científicos validados por JSON Schema e protegidos por locks SHA-256.
+5. `docs/research/`
+   Registra protocolo, contratos, decisões metodológicas e limitações.
+6. `main.py`
    Sobe uma API FastAPI com `GET /saude` e `POST /predict`.
-6. `gabriel-telegram/`
+7. `gabriel-telegram/`
    Recebe `3 gêneros ranqueados`, `década` e `popularidade`, chama o endpoint de ML, obtém um ranking top-5, apresenta uma sugestão por vez, salva feedback por `user_id` e personaliza as próximas recomendações daquele usuário.
 
 ## Estrutura
@@ -28,16 +33,29 @@ O fluxo agora ficou dividido em seis partes:
 ```text
 .
 ├── .dvc/
+├── .github/workflows/       # validação automática
 ├── cinebot_ml/
-├── data/
-├── datasets/
+│   ├── personalization/     # estado e atualização incremental
+│   ├── ranking/             # contratos, B0–B5 e métricas
+│   └── simulation/          # agentes e replay temporal
+├── configs/
+│   ├── agents/
+│   └── methods/
+├── data/                    # catálogo local, não versionado
+├── datasets/                # datasets locais e ponteiros DVC
+├── docs/
+│   ├── paper/
+│   └── research/
 ├── gabriel-curadoria/
 ├── gabriel-scrapper/
 ├── gabriel-telegram/
+├── tests/
 ├── dvc.yaml
 ├── LICENSE
+├── Makefile
 ├── main.py
 ├── README.md
+├── requirements-ci.txt
 ├── requirements-ml.txt
 └── train_ml.py
 ```
@@ -74,7 +92,8 @@ O vencedor é escolhido com base em `F1`, `Precision`, `PR AUC` e `ROC-AUC`, ap�
 
 Antes de rodar:
 
-- Python `3.10+`
+- Python `3.11–3.14` para a infraestrutura experimental;
+- Python `3.11` e `3.12` são validados automaticamente na CI;
 - BotCity Framework Web
 - token do Telegram
 - chave da API do TMDB
@@ -91,20 +110,58 @@ Dependências:
 - camada de ML:
   - `requirements-ml.txt`
 
-## Instalação
+## Instalação experimental
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r gabriel-scrapper/requirements.txt
-pip install -r gabriel-curadoria/requirements.txt
-pip install -r gabriel-telegram/requirements.txt
-pip install -r requirements-ml.txt
+make setup
+make validate
+make test
 ```
 
-## Configuração
+`make setup` é o comando único para instalar as dependências necessárias aos
+contratos, baselines, simulação e testes. Para instalar também MLflow, DVC, API
+e os três bots, use `make setup-full`.
 
-Crie um `.env` na raiz:
+O benchmark offline, os testes e o smoke test não exigem `.env`, token do
+Telegram, credencial do Maestro ou chave do TMDB.
+
+## Prontidão experimental
+
+```bash
+make validate   # Python, imports, schemas, locks e descritores de dados
+make compile    # compilação dos módulos
+make smoke      # B0–B5 em dados mínimos
+make test       # suíte completa
+make readiness  # inclui dados e artefatos locais da execução completa
+```
+
+A CI executa esse fluxo em Python 3.11 e 3.12. O modo `readiness` falha de forma
+explícita quando catálogo, dataset, remoto DVC ou artefatos B2/B3 não estiverem
+disponíveis e compatíveis.
+
+No estado atual não há remoto DVC compartilhado configurado. Assim, `dvc pull`
+sozinho não reconstrói os ativos em um clone novo. O catálogo pode ser
+regenerado pelo scraper com `TMDB_API_KEY`; dataset e B3 podem ser regenerados
+pelos estágios do `dvc.yaml`. O artefato B2 deve ser ajustado exclusivamente na
+partição de treino. Antes da execução oficial, esses ativos devem ser publicados
+em armazenamento autorizado ou regenerados e congelados conforme o protocolo.
+
+Com um manifesto de split aprovado, gere B2 somente com a partição de treino:
+
+```bash
+make prepare-b2 SPLIT_MANIFEST=results/manifests/splits/<split_id>.json
+```
+
+B3 é regenerado por `make prepare-b3`; o treinamento atual grava os campos de
+rastreabilidade exigidos pelo contrato. Artefatos locais antigos sem esses
+campos são rejeitados por `make readiness`.
+
+## Configuração operacional dos bots
+
+Somente as integrações operacionais precisam de `.env`. Crie-o na raiz quando
+for executar scraper, Maestro, API ou Telegram:
 
 ```env
 MAESTRO_SERVER=https://SEU_SERVIDOR_MAESTRO

@@ -25,17 +25,65 @@ Na raiz do repositório:
 
 ```bash
 python -m venv .venv
-.venv/bin/pip install -r requirements-ml.txt
-dvc pull
+source .venv/bin/activate
+make setup
+make validate
+make compile
+make test
+make smoke
+```
+
+`make validate` verifica a versão do Python, imports principais, configurações,
+schemas, locks e descritores versionados dos dados. Esse fluxo não lê `.env` e
+não exige credenciais. `make smoke` executa B0–B5 e C0 em dados mínimos criados
+em memória. A CI repete essas verificações em Python 3.11 e 3.12.
+
+Para uma execução completa, use `make readiness`. Além dos contratos, esse modo
+verifica catálogo, datasets, remoto DVC e artefatos B2/B3. A ausência ou
+incompatibilidade de qualquer ativo gera erro explícito.
+
+### Limitação atual dos ativos
+
+O repositório contém `dvc.yaml` e o ponteiro
+`datasets/movie_preferences.csv.dvc`, mas ainda não possui remoto DVC
+compartilhado. Portanto, `dvc pull` não recupera os dados em um clone novo.
+
+Existem três caminhos válidos antes da execução oficial:
+
+1. configurar um remoto DVC autorizado e publicar os ativos;
+2. regenerar `data/filmes.json` pelo scraper, gerar o dataset e treinar B3 pelos
+   estágios do `dvc.yaml`;
+3. receber snapshots aprovados e verificar seus hashes antes do uso.
+
+O B2 deve ser ajustado com `fit_tfidf_artifact(..., partition="train")`. O B3
+deve possuir metadados do contrato experimental, incluindo partição de ajuste,
+partições de seleção e congelamento anterior ao holdout. Artefatos antigos sem
+esses campos são rejeitados.
+
+Com o manifesto de split congelado, os comandos oficiais de preparação são:
+
+```bash
+make prepare-b2 SPLIT_MANIFEST=results/manifests/splits/<split_id>.json
+make prepare-b3
+make readiness
+```
+
+`prepare-b2` reconstrói as atribuições do manifesto e ajusta o vocabulário e o
+IDF somente nos filmes de treino. `prepare-b3` executa o treinamento existente,
+que registra partição de ajuste, partições de seleção, schema das features e
+congelamento anterior ao holdout.
+
+Depois que os ativos estiverem disponíveis:
+
+```bash
 .venv/bin/python -m cinebot_ml.experiment_config validate
 .venv/bin/python -m cinebot_ml.experiment_config diagnose
 .venv/bin/python -m cinebot_ml.experiment_config prepare
+make readiness
 ```
 
-`validate` verifica contrato, lock, entradas e escrita das saídas. `diagnose`
-mostra somente versões técnicas sanitizadas e estado Git. `prepare` cria a
-estrutura `results/{manifests,raw,tables,figures,reports}`. Esses diretórios e
-seus resultados são regeneráveis e, portanto, não são versionados.
+`prepare` cria `results/{manifests,raw,tables,figures,reports}`. Esses diretórios
+e seus resultados são regeneráveis e não são versionados.
 
 O particionamento também carrega esse arquivo por padrão; opções explícitas da
 CLI servem apenas para diagnósticos controlados e ficam registradas no manifesto
