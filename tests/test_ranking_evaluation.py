@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from cinebot_ml.ranking import CandidateSet, EligibilityPolicy, RecommendationRequest
@@ -12,6 +13,7 @@ from cinebot_ml.ranking.evaluation import (
     write_benchmark_report,
     write_benchmark_report_to_config,
 )
+from cinebot_ml.ranking.discovery_metrics import PopularityReference
 
 
 def candidates(ids=(1, 2, 3)):
@@ -99,6 +101,31 @@ def unit(*, relevance=None, complete=True, failing_method=None, candidate_set=No
 
 
 class RankingEvaluationTests(unittest.TestCase):
+    def test_descoberta_popularidade_e_estabilidade_integram_registros_e_agregados(self):
+        enriched = candidates()
+        enriched = replace(
+            enriched,
+            movies=(
+                {"id": 1, "titulo": "Filme 1", "generos": ["drama"], "ano": 1990},
+                {"id": 2, "titulo": "Filme 2", "generos": ["ficcao"], "ano": 2010},
+                {"id": 3, "titulo": "Filme 3", "generos": ["comedia"], "ano": 1970},
+            ),
+        )
+        popularity = PopularityReference({1: 100, 2: 10, 3: 1}, "train", "v1")
+        first = replace(unit(candidate_set=enriched), popularity_reference=popularity)
+        second = replace(first, interaction=1, state_version=1)
+        report = run_benchmark(
+            [first, second], k_values=[5], official_k_values=[5], config_sha256="f" * 64
+        )
+        initial = [row for row in report.individual if row.interaction == 0]
+        following = [row for row in report.individual if row.interaction == 1]
+        self.assertTrue(all(row.metrics["diversity_at_k"] == 1.0 for row in initial))
+        self.assertTrue(all(row.popularity_distribution_id == popularity.distribution_id for row in initial))
+        self.assertTrue(all(row.metrics["ranking_overlap_at_k"] is None for row in initial))
+        self.assertTrue(all(row.metrics["ranking_overlap_at_k"] == 1.0 for row in following))
+        self.assertTrue(all(row.metrics["ranking_repetition_at_k"] == 1.0 for row in following))
+        self.assertTrue(all(row["popularity_exposure_at_k"] is not None for row in report.aggregates))
+
     def test_executa_b0_a_b3_sob_mesmos_candidatos_e_k(self):
         report = run_benchmark(
             [unit()], k_values=[5, 10], official_k_values=[5, 10], config_sha256="f" * 64
