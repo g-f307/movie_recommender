@@ -19,6 +19,10 @@ from cinebot_ml.experiments.cold_start import (
     validate_profile_payload,
     write_cold_start_report,
 )
+from cinebot_ml.experiments.convergence import (
+    ConvergenceReport, ConvergenceValidationError, load_convergence_config,
+    run_convergence_study, write_convergence_report,
+)
 
 __all__ = [
     "ExperimentCell",
@@ -36,4 +40,6 @@ __all__ = [
     "run_cold_start_study",
     "validate_profile_payload",
     "write_cold_start_report",
+    "ConvergenceReport", "ConvergenceValidationError", "load_convergence_config",
+    "run_convergence_study", "write_convergence_report",
 ]
