@@ -14,6 +14,7 @@
 - [`research/ranking_evaluation.md`](research/ranking_evaluation.md): métricas Top-K, contrato de relevância e benchmark unificado B0–B5.
 - [`research/discovery_metrics.md`](research/discovery_metrics.md): fórmulas e limites de diversidade, novidade, popularidade e estabilidade.
 - [`research/experiment_matrix.md`](research/experiment_matrix.md): enumeração, identidade, execução, checkpoints e retomada da matriz experimental.
+- [`research/cold_start_study.md`](research/cold_start_study.md): projeções P0–P5, pareamento, execução e saídas do estudo de cold start.
 - [`research/personalization_contract.md`](research/personalization_contract.md): estado imutável, eventos de feedback e cadeia versionada de snapshots.
 - [`research/profile_update.md`](research/profile_update.md): política, equação e controles da atualização incremental do perfil.
 - [`research/synthetic_agents.md`](research/synthetic_agents.md): personas, preferências latentes e política reproduzível de feedback sintético.
