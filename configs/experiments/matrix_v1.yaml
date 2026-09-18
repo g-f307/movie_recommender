@@ -1,0 +1,4 @@
+version: "1.0"
+frozen: true
+deterministic_methods: [B0, B1, B2, B3, B4, B5]
+exclusions: []
