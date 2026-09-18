@@ -59,6 +59,7 @@ def _config_check() -> str:
     from cinebot_ml.experiments.matrix import _load_matrix_config, DEFAULT_MATRIX_CONFIG_PATH
     from cinebot_ml.experiments.cold_start import load_cold_start_config
     from cinebot_ml.experiments.convergence import load_convergence_config
+    from cinebot_ml.experiments.ablation import load_ablation_variants
     from cinebot_ml.personalization import load_profile_update_config
     from cinebot_ml.ranking import (
         load_content_config,
@@ -87,7 +88,8 @@ def _config_check() -> str:
     _load_matrix_config(DEFAULT_MATRIX_CONFIG_PATH)
     load_cold_start_config()
     load_convergence_config()
-    return f"{len(loaders) + 3} configurações, schemas e locks validados"
+    load_ablation_variants()
+    return f"{len(loaders) + 4} configurações, schemas e locks validados"
 
 
 def _tracked_inputs_check() -> str:

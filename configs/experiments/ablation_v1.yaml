@@ -1,0 +1,11 @@
+version: "1.0"
+frozen: true
+components: [history, negative_feedback, genres, director, decade_popularity, text]
+variants:
+  A0: {removed: []}
+  A1: {removed: [history]}
+  A2: {removed: [negative_feedback]}
+  A3: {removed: [genres]}
+  A4: {removed: [director]}
+  A5: {removed: [decade_popularity]}
+  A6: {removed: [text]}

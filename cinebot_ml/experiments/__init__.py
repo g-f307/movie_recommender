@@ -23,6 +23,7 @@ from cinebot_ml.experiments.convergence import (
     ConvergenceReport, ConvergenceValidationError, load_convergence_config,
     run_convergence_study, write_convergence_report,
 )
+from cinebot_ml.experiments.ablation import AblationContext,AblationReport,AblationValidationError,apply_ablation,execute_ablation,load_ablation_variants
 
 __all__ = [
     "ExperimentCell",
@@ -42,4 +43,5 @@ __all__ = [
     "write_cold_start_report",
     "ConvergenceReport", "ConvergenceValidationError", "load_convergence_config",
     "run_convergence_study", "write_convergence_report",
+    "AblationContext","AblationReport","AblationValidationError","apply_ablation","execute_ablation","load_ablation_variants",
 ]
