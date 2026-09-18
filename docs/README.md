@@ -11,7 +11,8 @@
 - [`research/ranking_contract.md`](research/ranking_contract.md): tipos, invariantes e serialização comuns aos recomendadores B0–B6.
 - [`research/candidate_set.md`](research/candidate_set.md): elegibilidade, filtros e identidade do conjunto comum de candidatos.
 - [`research/baselines.md`](research/baselines.md): fórmulas, configurações e limitações dos métodos de referência.
-- [`research/ranking_evaluation.md`](research/ranking_evaluation.md): métricas Top-K, contrato de relevância e benchmark unificado B0–B3.
+- [`research/ranking_evaluation.md`](research/ranking_evaluation.md): métricas Top-K, contrato de relevância e benchmark unificado B0–B5.
+- [`research/discovery_metrics.md`](research/discovery_metrics.md): fórmulas e limites de diversidade, novidade, popularidade e estabilidade.
 - [`research/personalization_contract.md`](research/personalization_contract.md): estado imutável, eventos de feedback e cadeia versionada de snapshots.
 - [`research/profile_update.md`](research/profile_update.md): política, equação e controles da atualização incremental do perfil.
 - [`research/synthetic_agents.md`](research/synthetic_agents.md): personas, preferências latentes e política reproduzível de feedback sintético.

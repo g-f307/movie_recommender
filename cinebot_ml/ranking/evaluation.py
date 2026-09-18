@@ -15,6 +15,13 @@ from typing import Any, Mapping, Sequence
 from cinebot_ml.ranking.candidates import CandidateSet
 from cinebot_ml.ranking.contracts import MovieId, RankingResult, RecommendationRequest, Recommender
 from cinebot_ml.ranking.metrics import calculate_top_k_metrics, catalog_coverage_at_k
+from cinebot_ml.ranking.discovery_metrics import (
+    PopularityReference,
+    calculate_discovery_metrics,
+    rank_position_variation_at_k,
+    ranking_overlap_at_k,
+    ranking_repetition_at_k,
+)
 
 
 RELEVANCE_SOURCES = {
@@ -34,6 +41,11 @@ METRIC_NAMES = (
     "hit_rate_at_k",
     "diversity_at_k",
     "novelty_at_k",
+    "popularity_exposure_at_k",
+    "popularity_bias_at_k",
+    "ranking_repetition_at_k",
+    "ranking_overlap_at_k",
+    "rank_position_variation_at_k",
 )
 
 
@@ -103,6 +115,7 @@ class BenchmarkUnit:
     interaction: int = 0
     state_version: int = 0
     simulation_id: str | None = None
+    popularity_reference: PopularityReference | None = None
 
     def __post_init__(self) -> None:
         if not self.request.unit_id:
@@ -157,6 +170,7 @@ class IndividualEvaluation:
     interaction: int = 0
     state_version: int = 0
     simulation_id: str | None = None
+    popularity_distribution_id: str | None = None
     ranked_movie_ids: tuple[MovieId, ...] = ()
     scores: tuple[float, ...] = ()
     metrics: Mapping[str, float | None] = field(default_factory=dict)
@@ -202,6 +216,9 @@ def _benchmark_identity(
                 "interaction": unit.interaction,
                 "state_version": unit.state_version,
                 "simulation_id": unit.simulation_id,
+                "popularity_distribution_id": (
+                    unit.popularity_reference.distribution_id if unit.popularity_reference else None
+                ),
                 "methods": {
                     method: {
                         "version": recommender.method_version,
@@ -224,9 +241,23 @@ def _evaluate_result(
     ranking = tuple(item.movie_id for item in result.ranked_items)
     scores = tuple(float(item.score) for item in result.ranked_items)
     evaluation_status = unit.relevance.status_for(unit.candidates.movie_ids)
-    metrics: Mapping[str, float | None] = {}
+    catalog = {movie["id"]: movie for movie in unit.candidates.movies}
+    discovery = calculate_discovery_metrics(ranking, catalog, k, unit.popularity_reference)
+    distribution_id = discovery.pop("popularity_distribution_id")
+    metrics: dict[str, float | None] = (
+        {key: value for key, value in discovery.items()}
+        if any(value is not None for value in discovery.values())
+        else {}
+    )
     if evaluation_status in {"evaluated", "no_relevant_items"}:
-        metrics = calculate_top_k_metrics(ranking, unit.relevance.values, k)
+        metrics.update(calculate_top_k_metrics(ranking, unit.relevance.values, k))
+        metrics.update({key: value for key, value in discovery.items()})
+    if metrics:
+        metrics.update({
+            "ranking_repetition_at_k": None,
+            "ranking_overlap_at_k": None,
+            "rank_position_variation_at_k": None,
+        })
     return IndividualEvaluation(
         benchmark_id=benchmark_id,
         unit_id=unit.request.unit_id or "",
@@ -249,6 +280,7 @@ def _evaluate_result(
         interaction=unit.interaction,
         state_version=unit.state_version,
         simulation_id=unit.simulation_id,
+        popularity_distribution_id=distribution_id,
         ranked_movie_ids=ranking,
         scores=scores,
         metrics=metrics,
@@ -294,7 +326,7 @@ def aggregate_individual_results(
     records: Sequence[IndividualEvaluation],
     units: Sequence[BenchmarkUnit],
 ) -> tuple[Mapping[str, Any], ...]:
-    groups: dict[tuple[str, str, str, int, int, str, str, str], list[IndividualEvaluation]] = {}
+    groups: dict[tuple[str, str, str, int, int, str, str, str, str | None], list[IndividualEvaluation]] = {}
     for record in records:
         key = (
             record.method,
@@ -305,14 +337,21 @@ def aggregate_individual_results(
             record.candidate_set_id,
             record.relevance_source,
             record.relevance_version,
+            record.popularity_distribution_id,
         )
         groups.setdefault(key, []).append(record)
     candidates_by_id = {unit.candidates.candidate_set_id: unit.candidates.movie_ids for unit in units}
     output = []
-    for key, values in sorted(groups.items()):
-        method, condition, profile, k, interaction, candidate_set_id, relevance_source, relevance_version = key
+    for key, values in sorted(groups.items(), key=lambda item: repr(item[0])):
+        (
+            method, condition, profile, k, interaction, candidate_set_id,
+            relevance_source, relevance_version, popularity_distribution_id,
+        ) = key
         successful = [value for value in values if value.ranking_status == "completed"]
-        evaluated = [value for value in values if value.metrics]
+        evaluated = [
+            value for value in values
+            if value.evaluation_status in {"evaluated", "no_relevant_items"}
+        ]
         row: dict[str, Any] = {
             "method": method,
             "condition": condition,
@@ -322,6 +361,7 @@ def aggregate_individual_results(
             "candidate_set_id": candidate_set_id,
             "relevance_source": relevance_source,
             "relevance_version": relevance_version,
+            "popularity_distribution_id": popularity_distribution_id,
             "unit_count": len(values),
             "evaluated_unit_count": len(evaluated),
             "failed_unit_count": len(values) - len(successful),
@@ -336,10 +376,47 @@ def aggregate_individual_results(
             ),
         }
         for metric in METRIC_NAMES:
-            observed = [value.metrics.get(metric) for value in evaluated]
+            observed = [value.metrics.get(metric) for value in successful]
             numeric = [float(value) for value in observed if value is not None]
             row[metric] = mean(numeric) if numeric else None
         output.append(row)
+    return tuple(output)
+
+
+def _add_stability(records: Sequence[IndividualEvaluation]) -> tuple[IndividualEvaluation, ...]:
+    previous: dict[tuple[Any, ...], IndividualEvaluation] = {}
+    output = []
+    for record in records:
+        key = (
+            record.unit_id, record.method, record.condition, record.profile, record.seed,
+            record.k, record.relevance_source, record.relevance_version,
+            record.popularity_distribution_id,
+        )
+        prior = previous.get(key)
+        updated = record
+        if (
+            record.ranking_status == "completed"
+            and prior is not None
+            and record.interaction > prior.interaction
+        ):
+            metrics = dict(record.metrics)
+            metrics.update({
+                "ranking_repetition_at_k": ranking_repetition_at_k(
+                    prior.ranked_movie_ids, record.ranked_movie_ids, record.k
+                ),
+                "ranking_overlap_at_k": ranking_overlap_at_k(
+                    prior.ranked_movie_ids, record.ranked_movie_ids, record.k
+                ),
+                "rank_position_variation_at_k": rank_position_variation_at_k(
+                    prior.ranked_movie_ids, record.ranked_movie_ids, record.k
+                ),
+            })
+            updated = replace(record, metrics=metrics)
+        if record.ranking_status == "completed" and (
+            prior is None or record.interaction > prior.interaction
+        ):
+            previous[key] = updated
+        output.append(updated)
     return tuple(output)
 
 
@@ -378,6 +455,7 @@ def run_benchmark(
                             benchmark_id, unit, method, recommender.method_version, k, exc
                         )
                     )
+    records = list(_add_stability(records))
     aggregates = aggregate_individual_results(records, units)
     manifest = {**identity, "benchmark_id": benchmark_id}
     return BenchmarkReport(benchmark_id, manifest, tuple(records), aggregates)
@@ -501,6 +579,21 @@ def load_benchmark_units(
         raise RankingEvaluationError("Arquivo de unidades deve conter uma lista 'units'.")
     source = str(payload.get("relevance_source") or "")
     version = str(payload.get("relevance_version") or "")
+    popularity_reference = None
+    raw_popularity = payload.get("popularity_reference")
+    if raw_popularity is not None:
+        if not isinstance(raw_popularity, Mapping) or not isinstance(raw_popularity.get("counts"), list):
+            raise RankingEvaluationError("popularity_reference deve conter uma lista counts.")
+        counts = {}
+        for item in raw_popularity["counts"]:
+            if not isinstance(item, Mapping) or "movie_id" not in item or "count" not in item:
+                raise RankingEvaluationError("Item inválido em popularity_reference.counts.")
+            if item["movie_id"] in counts:
+                raise RankingEvaluationError("movie_id duplicado em popularity_reference.counts.")
+            counts[item["movie_id"]] = item["count"]
+        popularity_reference = PopularityReference(
+            counts, str(raw_popularity.get("partition") or ""), str(raw_popularity.get("version") or "")
+        )
     enabled = tuple(methods or load_config(config_path)["methods"]["enabled"])
     invalid = sorted(set(enabled) - {f"B{index}" for index in range(6)})
     if not enabled or invalid:
@@ -587,6 +680,7 @@ def load_benchmark_units(
                 interaction=int(raw.get("interaction", 0)),
                 state_version=state_version,
                 simulation_id=raw.get("simulation_id"),
+                popularity_reference=popularity_reference,
             )
         )
     return units
