@@ -18,7 +18,7 @@ O fluxo está dividido entre aplicações operacionais e infraestrutura científ
 2. `gabriel-curadoria/`
    Lê a base coletada e monta uma fila local em `data/fila_curadoria.json`. O envio ao DataPool do Maestro ficou opcional.
 3. `cinebot_ml/`
-   Implementa dados, splits, B0–B5, métricas Top-K, personalização, agentes sintéticos, replay C0–C5 e benchmark unificado.
+   Implementa dados, splits, B0–B5, métricas, personalização, agentes sintéticos, replay C0–C5, benchmark e matriz experimental.
 4. `configs/`
    Contém parâmetros científicos validados por JSON Schema e protegidos por locks SHA-256.
 5. `docs/research/`
@@ -35,11 +35,13 @@ O fluxo está dividido entre aplicações operacionais e infraestrutura científ
 ├── .dvc/
 ├── .github/workflows/       # validação automática
 ├── cinebot_ml/
+│   ├── experiments/         # matriz, execução e retomada
 │   ├── personalization/     # estado e atualização incremental
 │   ├── ranking/             # contratos, B0–B5 e métricas
 │   └── simulation/          # agentes e replay temporal
 ├── configs/
 │   ├── agents/
+│   ├── experiments/
 │   └── methods/
 ├── data/                    # catálogo local, não versionado
 ├── datasets/                # datasets locais e ponteiros DVC
@@ -140,6 +142,23 @@ make readiness  # inclui dados e artefatos locais da execução completa
 A CI executa esse fluxo em Python 3.11 e 3.12. O modo `readiness` falha de forma
 explícita quando catálogo, dataset, remoto DVC ou artefatos B2/B3 não estiverem
 disponíveis e compatíveis.
+
+## Matriz experimental
+
+```bash
+# enumera as 15.120 células oficiais sem executá-las
+python -m cinebot_ml.experiments list
+
+# exemplo de matriz mínima
+python -m cinebot_ml.experiments list \
+  --method B0 --condition C0 --profile P0 \
+  --persona consistent --seed 42 --k 5
+```
+
+A execução recebe um runner específico do estudo por `--runner modulo:funcao` e
+persiste manifesto, status e um checkpoint atômico por célula. Uma retomada
+ignora resultados existentes e não os sobrescreve. Consulte
+[`docs/research/experiment_matrix.md`](docs/research/experiment_matrix.md).
 
 No estado atual não há remoto DVC compartilhado configurado. Assim, `dvc pull`
 sozinho não reconstrói os ativos em um clone novo. O catálogo pode ser
