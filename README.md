@@ -160,6 +160,20 @@ persiste manifesto, status e um checkpoint atômico por célula. Uma retomada
 ignora resultados existentes e não os sobrescreve. Consulte
 [`docs/research/experiment_matrix.md`](docs/research/experiment_matrix.md).
 
+O estudo pareado de cold start pode ser executado por configuração, preservando
+o mesmo agente latente entre P0–P5:
+
+```bash
+python -m cinebot_ml.experiments cold-start \
+  --catalog data/filmes.json --condition C2 \
+  --persona consistent --seed 42 --k 5 \
+  --method B0 --method B1 --method B4 --method B5 \
+  --output results/raw/cold_start
+```
+
+As saídas incluem dataset bruto, disponibilidade de candidatos, manifesto e
+resumo descritivo. B2 e B3 exigem seus artefatos explícitos.
+
 No estado atual não há remoto DVC compartilhado configurado. Assim, `dvc pull`
 sozinho não reconstrói os ativos em um clone novo. O catálogo pode ser
 regenerado pelo scraper com `TMDB_API_KEY`; dataset e B3 podem ser regenerados

@@ -1,0 +1,10 @@
+version: "1.0"
+frozen: true
+methods: [B0, B1, B2, B3, B4, B5]
+profiles:
+  P0: {allowed_fields: []}
+  P1: {allowed_fields: [ranked_genres]}
+  P2: {allowed_fields: [ranked_genres]}
+  P3: {allowed_fields: [ranked_genres, decade_preference]}
+  P4: {allowed_fields: [ranked_genres, decade_preference, popularity_preference]}
+  P5: {allowed_fields: [ranked_genres, decade_preference, popularity_preference, preferred_directors, preferred_keywords]}
