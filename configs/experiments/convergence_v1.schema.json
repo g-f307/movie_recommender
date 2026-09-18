@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["version", "frozen", "checkpoints", "methods", "metrics"],
+  "properties": {
+    "version": {"type": "string", "minLength": 1}, "frozen": {"const": true},
+    "checkpoints": {
+      "type": "object", "additionalProperties": false,
+      "required": ["C0", "C1", "C2", "C3", "C4", "C5"],
+      "properties": {"C0":{"const":0},"C1":{"const":1},"C2":{"const":3},"C3":{"const":5},"C4":{"const":10},"C5":{"const":15}}
+    },
+    "methods": {"const": ["B4", "B5"]},
+    "metrics": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}
+  }
+}

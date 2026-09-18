@@ -1,0 +1,5 @@
+version: "1.0"
+frozen: true
+checkpoints: {C0: 0, C1: 1, C2: 3, C3: 5, C4: 10, C5: 15}
+methods: [B4, B5]
+metrics: [ndcg_at_k, diversity_at_k, ranking_overlap_at_k]
