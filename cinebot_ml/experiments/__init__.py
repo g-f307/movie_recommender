@@ -24,6 +24,7 @@ from cinebot_ml.experiments.convergence import (
     run_convergence_study, write_convergence_report,
 )
 from cinebot_ml.experiments.ablation import AblationContext,AblationReport,AblationValidationError,apply_ablation,execute_ablation,load_ablation_variants
+from cinebot_ml.experiments.robustness import RobustnessCase, Scenario, load_robustness_config, make_case, run_robustness, write_robustness_report
 
 __all__ = [
     "ExperimentCell",
@@ -44,4 +45,5 @@ __all__ = [
     "ConvergenceReport", "ConvergenceValidationError", "load_convergence_config",
     "run_convergence_study", "write_convergence_report",
     "AblationContext","AblationReport","AblationValidationError","apply_ablation","execute_ablation","load_ablation_variants",
+    "RobustnessCase", "Scenario", "load_robustness_config", "make_case", "run_robustness", "write_robustness_report",
 ]
