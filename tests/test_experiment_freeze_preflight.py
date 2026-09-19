@@ -18,9 +18,9 @@ class FreezePreflightTests(unittest.TestCase):
         report = preflight()
         self.assertEqual(report["purpose"], "preflight_only")
         self.assertEqual(report["status"], "blocked")
-        self.assertIn("advisor_protocol_approval", report["blockers"])
-        self.assertIn("b6_decision", report["blockers"])
-        self.assertIn("official_cell_runner", report["blockers"])
+        self.assertEqual(report["review_status"], "advisor_unavailable_not_approved")
+        self.assertEqual(report["method_scope"]["b6"], "deferred_no_distinct_method")
+        self.assertIn("paired_units_missing", report["blockers"])
         self.assertEqual(len(report["commit"]), 40)
 
 

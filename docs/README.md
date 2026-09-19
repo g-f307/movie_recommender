@@ -19,6 +19,7 @@
 - [`research/ablation_study.md`](research/ablation_study.md): variantes A0–A6, componentes ativos e execução pareada.
 - [`research/robustness_study.md`](research/robustness_study.md): cenários adversos versionados e avaliação exploratória.
 - [`research/experiment_freeze_preflight.md`](research/experiment_freeze_preflight.md): matriz piloto e verificação de pré-requisitos do congelamento.
+- [`research/b6_decision_v1.md`](research/b6_decision_v1.md): decisão pré-holdout de adiar B6 na versão 1.
 - [`research/personalization_contract.md`](research/personalization_contract.md): estado imutável, eventos de feedback e cadeia versionada de snapshots.
 - [`research/profile_update.md`](research/profile_update.md): política, equação e controles da atualização incremental do perfil.
 - [`research/synthetic_agents.md`](research/synthetic_agents.md): personas, preferências latentes e política reproduzível de feedback sintético.
