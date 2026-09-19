@@ -1,40 +1,68 @@
-# Pré-voo do congelamento experimental
+# Piloto e congelamento experimental v1
 
-A issue #46 exige execução piloto e oficial. Este pré-voo **não** é o piloto
-nem o congelamento: ele enumera uma matriz reduzida verificável e registra
-ausências antes de executar qualquer célula. A matriz seleciona B0–B5,
-C0/C2/C4, P0/P4/P5, personas `consistent` e `noisy`, seeds 42 e 137,
-e os dois valores oficiais de K: 432 células.
+O escopo v1 segue o roadmap: B0–B5 são obrigatórios; B6 foi adiado por não
+possuir hipótese nem mecanismo distinto de B5 especificado antes do holdout.
+Não houve revisão do orientador. Isso deve constar como limitação do artigo,
+sem ser confundido com aprovação.
+
+## Insumos e isolamento
+
+O split por `movie_id` (60/20/20, seed 42) deriva do dataset local e é
+registrado em `results/manifests/splits/`. B2 é ajustado apenas com filmes da
+partição de treino. B3 usa uma amostra determinística, independente de rótulo,
+de 1/32 dos contextos: fit somente em treino, seleção de família,
+hiperparâmetros e threshold somente em validação. O artefato experimental
+`artifacts/b3_experiment_v1.*` não substitui o modelo de produção. A amostragem
+é limitação a declarar; o dataset contém majoritariamente rótulos proxy.
+
+O catálogo de avaliação em `results/derived/test_catalog.json` contém
+exatamente os IDs do holdout, sem duplicatas. As unidades em `results/units/`
+são pareadas por `comparison_id`, com o mesmo agente, estado, candidatos e
+julgamentos para todos os métodos. A política `neutral-exposure-v1` escolhe
+filmes apresentados por uma permutação determinística independente do
+recomendador; não usa ranking de B5 para gerar o histórico. A relevância é
+produzida pelo agente sintético para cada candidato elegível. Portanto,
+**não equivale a relevância humana observada**.
+
+## Reprodução local
 
 ```bash
+python -m cinebot_ml.experimental_splits
+python -m cinebot_ml.artifacts build-b2 \
+  --split-manifest results/manifests/splits/movie_id_split.json
+python -m cinebot_ml.experiments.train_b3
+python -m cinebot_ml.experiments.units --pilot
 python -m cinebot_ml.experiments.freeze --output /tmp/movie-freeze-preflight.json
 ```
 
-O comando sai com código 2 quando existem bloqueios. O relatório contém
-commit, dimensões e IDs de cada célula, presença, tamanho e SHA-256 dos dados
-e artefatos locais, além da validação de contrato do split e dos artefatos.
-Dados e resultados brutos permanecem fora do Git. Mesmo metadados B3 válidos
-**não** comprovam que o modelo foi treinado no split atual; a proveniência de
-treino ainda precisa ser verificada separadamente.
+O piloto contém B0–B5, C0/C2/C4, P0/P4/P5, personas `consistent` e `noisy`,
+seeds 42/137 e K=5/10: 432 células e 72 unidades pareadas. A execução é:
 
-O escopo v1 segue o roadmap com B0–B5. B6 fica adiado porque ainda não há
-hipótese nem componente técnico distinto de B5 definidos antes do holdout;
-resultados do teste final não poderão ser usados para inventá-lo. A revisão do
-orientador está indisponível e **não** é tratada como aprovação. Isso deve ser
-relatado como limitação metodológica na pesquisa.
+```python
+from pathlib import Path
+from cinebot_ml.experiments.freeze import pilot_matrix, audit_execution
+from cinebot_ml.experiments.matrix import execute_matrix
+from cinebot_ml.experiments.cell_runner import run_cell
 
-O split e o artefato B2 foram gerados localmente a partir dos dados atuais,
-mas são ignorados pelo Git e devem ser regenerados e verificados em outro clone.
-Antes de executar o piloto faltam as unidades pareadas e o artefato B3 treinado
-no split experimental. Antes da execução oficial ainda são necessárias
-a verificação de completude, retomada e isolamento entre saídas piloto e
-oficiais. Nenhuma tag experimental ou resultado confirmatório deve ser criado
-a partir deste pré-voo.
+matrix = pilot_matrix()
+report = execute_matrix(matrix, Path("results/raw/pilot"), run_cell)
+audit = audit_execution(matrix, Path("results/raw/pilot"))
+assert audit["complete"]
+```
 
-O adaptador `cinebot_ml.experiments.cell_runner:run_cell` já chama o benchmark
-B0–B5 para uma unidade declarativa por `comparison_id` em `results/units/`.
-Ele não gera julgamentos, feedback nem unidades sintéticas: se a unidade falta,
-ou suas dimensões divergem da célula, a execução falha explicitamente. Para B3,
-espera artefatos experimentais separados dos arquivos de produção. A geração
-das unidades e o retreino B3 continuam pendentes; portanto o adaptador ainda
-não autoriza executar a matriz piloto como estudo completo.
+Uma segunda execução não sobrescreve células já existentes. A auditoria lê
+cada checkpoint, confere identidade, status, avaliação e NDCG@K, e classifica
+falhas. O piloto mede viabilidade operacional; não decide hipóteses.
+
+Na execução local, 432/432 células terminaram sem falhas em cerca de 34
+segundos. Os checkpoints individuais somaram 6.255.230 bytes. Uma retomada
+marcou 432 células como `skipped` e preservou o hash de um checkpoint
+inspecionado. Extrapolação linear para 15.120 células: aproximadamente 20
+minutos e 219 MB de checkpoints; a execução real pode divergir e também terá
+manifestos e unidades auxiliares.
+
+Os artefatos grandes, unidades e resultados brutos são ignorados pelo Git.
+O manifesto final deve registrar hashes, commit e dimensões. Saídas oficiais
+devem residir em `results/raw/official/`, separadas das do piloto, e somente
+ser congeladas após auditoria integral. A Etapa 5 deve consumir esses arquivos
+sem reexecutar os modelos.

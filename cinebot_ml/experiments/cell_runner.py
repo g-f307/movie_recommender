@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from cinebot_ml.config import PROJECT_ROOT
-from cinebot_ml.experiment_config import DEFAULT_CONFIG_PATH, load_config, sha256_file
+from cinebot_ml.experiment_config import load_config, sha256_file
 from cinebot_ml.experiments.matrix import ExperimentCell, MatrixValidationError
+from cinebot_ml.experiments.units import HOLDOUT_CONFIG
 from cinebot_ml.ranking.evaluation import load_benchmark_units, run_benchmark
 
 
@@ -23,7 +24,7 @@ def run_cell(cell: ExperimentCell) -> dict[str, Any]:
     b3_model = PROJECT_ROOT / "artifacts/b3_experiment_v1.joblib"
     b3_metadata = PROJECT_ROOT / "artifacts/b3_experiment_v1.json"
     units = load_benchmark_units(
-        unit_path, config_path=DEFAULT_CONFIG_PATH,
+        unit_path, config_path=HOLDOUT_CONFIG,
         b2_artifact_path=b2_path if cell.method == "B2" else None,
         b3_model_path=b3_model if cell.method == "B3" else None,
         b3_metadata_path=b3_metadata if cell.method == "B3" else None,
@@ -41,10 +42,10 @@ def run_cell(cell: ExperimentCell) -> dict[str, Any]:
         ["git", "rev-parse", "HEAD"], cwd=PROJECT_ROOT,
         capture_output=True, text=True, check=True,
     ).stdout.strip()
-    config = load_config(DEFAULT_CONFIG_PATH)
+    config = load_config(HOLDOUT_CONFIG)
     report = run_benchmark(
         units, k_values=(cell.k,), official_k_values=config["k_values"],
-        config_sha256=sha256_file(DEFAULT_CONFIG_PATH), git_commit=commit,
+        config_sha256=sha256_file(HOLDOUT_CONFIG), git_commit=commit,
     )
     if len(report.individual) != 1:
         raise MatrixValidationError("Benchmark não produziu um único registro individual.")

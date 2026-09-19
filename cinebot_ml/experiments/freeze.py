@@ -16,6 +16,8 @@ from cinebot_ml.ranking.supervised import (
     SupervisedConfigError, load_supervised_config, validate_supervised_metadata,
 )
 from cinebot_ml.ranking.tfidf import TfidfArtifact
+from cinebot_ml.experiments.units import HOLDOUT_CONFIG
+from cinebot_ml.dataset import load_catalog
 
 
 PILOT_METHODS = ("B0", "B1", "B2", "B3", "B4", "B5")
@@ -26,6 +28,7 @@ PILOT_SEEDS = (42, 137)
 
 def pilot_matrix() -> ExperimentMatrix:
     return load_experiment_matrix(
+        experiment_config_path=HOLDOUT_CONFIG,
         methods=PILOT_METHODS,
         conditions=PILOT_CONDITIONS,
         profiles=PILOT_PROFILES,
@@ -47,9 +50,8 @@ def preflight(root: Path = PROJECT_ROOT) -> dict[str, Any]:
         "dataset": "datasets/movie_preferences.csv",
         "feedback": "datasets/user_feedback.csv",
         "split_manifest": "results/manifests/splits/movie_id_split.json",
+        "holdout_catalog": "results/derived/test_catalog.json",
         "b2_artifact": "artifacts/b2_tfidf_v1.json",
-        "b3_model": "artifacts/production_model.joblib",
-        "b3_metadata": "artifacts/model_metadata.json",
         "experimental_b3_model": "artifacts/b3_experiment_v1.joblib",
         "experimental_b3_metadata": "artifacts/b3_experiment_v1.json",
     }.items():
@@ -70,6 +72,13 @@ def preflight(root: Path = PROJECT_ROOT) -> dict[str, Any]:
                 raise ValueError("Hash da fonte do split diverge do dataset atual.")
             checks["split_manifest"]["contract"] = "valid"
             checks["split_manifest"]["assigned_movies"] = len(assignments)
+            holdout_path = root / "results/derived/test_catalog.json"
+            if holdout_path.is_file():
+                ids = [str(movie["id"]) for movie in load_catalog(holdout_path)]
+                expected = {movie_id for movie_id, partition in assignments.items() if partition == "test"}
+                if len(ids) != len(set(ids)) or set(ids) != expected:
+                    raise ValueError("Catálogo de holdout diverge dos IDs da partição test.")
+                checks["holdout_catalog"]["contract"] = "valid"
         except (OSError, ValueError, KeyError) as exc:
             checks["split_manifest"]["contract"] = "invalid"
             checks["split_manifest"]["reason"] = str(exc)
@@ -84,27 +93,30 @@ def preflight(root: Path = PROJECT_ROOT) -> dict[str, Any]:
             checks["b2_artifact"]["contract"] = "invalid"
             checks["b2_artifact"]["reason"] = str(exc)
             blockers.append("b2_artifact_invalid")
-    metadata_path = root / "artifacts/model_metadata.json"
+    metadata_path = root / "artifacts/b3_experiment_v1.json"
     if metadata_path.is_file():
         try:
             metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
             validate_supervised_metadata(metadata, load_supervised_config())
-            checks["b3_metadata"]["contract"] = "valid"
+            if metadata.get("split_manifest_sha256") != checks["split_manifest"].get("sha256"):
+                raise ValueError("B3 não corresponde ao manifesto de split atual.")
+            if metadata.get("dataset_sha256") != checks["dataset"].get("sha256"):
+                raise ValueError("B3 não corresponde ao dataset atual.")
+            checks["experimental_b3_metadata"]["contract"] = "valid"
         except (OSError, ValueError, SupervisedConfigError) as exc:
-            checks["b3_metadata"]["contract"] = "invalid"
-            checks["b3_metadata"]["reason"] = str(exc)
-            blockers.append("b3_metadata_invalid")
+            checks["experimental_b3_metadata"]["contract"] = "invalid"
+            checks["experimental_b3_metadata"]["reason"] = str(exc)
+            blockers.append("experimental_b3_metadata_invalid")
     # Escopo científico v1 definido pelo roadmap; revisão externa não é presumida.
     # O contrato de metadados não prova que os IDs de treino coincidem com
     # o manifesto atual; essa evidência precisa acompanhar o modelo novo.
-    blockers.append("b3_split_provenance_unverified")
     units_root = root / "results/units"
     missing_units = sum(not (units_root / f"{cell.comparison_id}.json").is_file()
                         for cell in matrix.cells)
     if missing_units:
         blockers.append("paired_units_missing")
     return {
-        "status": "blocked", "purpose": "preflight_only", "commit": commit,
+        "status": "blocked" if blockers else "ready_for_pilot", "purpose": "preflight_only", "commit": commit,
         "method_scope": {"included": list(PILOT_METHODS), "b6": "deferred_no_distinct_method",
                          "basis": "roadmap_and_issue_47_before_holdout"},
         "review_status": "advisor_unavailable_not_approved",
@@ -112,6 +124,45 @@ def preflight(root: Path = PROJECT_ROOT) -> dict[str, Any]:
         "missing_paired_unit_files": missing_units,
         "blockers": blockers,
     }
+
+
+def audit_execution(matrix: ExperimentMatrix, output: Path) -> dict[str, Any]:
+    """Confere todos os checkpoints, sem confiar apenas no status agregado."""
+    directory = output / matrix.matrix_id
+    manifest_path = directory / "matrix.manifest.json"
+    if not manifest_path.is_file() or json.loads(manifest_path.read_text(encoding="utf-8")) != matrix.to_manifest():
+        raise ValueError("Manifesto da matriz ausente ou divergente.")
+    failures = []
+    completed = 0
+    bytes_total = 0
+    for cell in matrix.cells:
+        path = directory / "cells" / f"{cell.cell_id}.json"
+        if not path.is_file():
+            failures.append({"cell_id": cell.cell_id, "reason": "missing"})
+            continue
+        bytes_total += path.stat().st_size
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+            individual = record["result"]["individual"] if record["status"] == "completed" else None
+            if record["cell"] != cell.to_dict():
+                reason = "cell_mismatch"
+            elif record["status"] != "completed":
+                reason = f"failed:{record.get('error_type', 'unknown')}"
+            elif individual["method"] != cell.method or individual["ranking_status"] != "completed":
+                reason = "ranking_incomplete"
+            elif individual["evaluation_status"] != "evaluated":
+                reason = f"evaluation:{individual['evaluation_status']}"
+            elif individual["metrics"].get("ndcg_at_k") is None:
+                reason = "ndcg_missing"
+            else:
+                completed += 1
+                continue
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            reason = f"malformed:{type(exc).__name__}"
+        failures.append({"cell_id": cell.cell_id, "reason": reason})
+    return {"matrix_id": matrix.matrix_id, "total": matrix.total_cells,
+            "completed": completed, "failures": failures, "cell_bytes": bytes_total,
+            "complete": completed == matrix.total_cells}
 
 
 def main() -> int:
