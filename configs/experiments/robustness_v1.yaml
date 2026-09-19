@@ -1,0 +1,17 @@
+version: '1.0'
+frozen: true
+exploratory: true
+seeds: [42, 137, 2027, 31415, 65537]
+scenarios:
+  nominal: {kind: nominal, intensity: 0}
+  random_feedback: {kind: random_feedback, intensity: 1}
+  contradictory_feedback: {kind: contradictory_feedback, intensity: 1}
+  extreme_negative: {kind: extreme_negative, intensity: 1}
+  specific_preference: {kind: specific_preference, intensity: 1}
+  broad_preference: {kind: broad_preference, intensity: 1}
+  few_candidates: {kind: few_candidates, intensity: 5}
+  rare_genre: {kind: rare_genre, intensity: 1}
+  popularity_concentration: {kind: popularity_concentration, intensity: 0.2}
+  long_tail: {kind: long_tail, intensity: 0.2}
+  missing_metadata: {kind: missing_metadata, intensity: 0.25}
+  catalog_shift: {kind: catalog_shift, intensity: 0.25}
