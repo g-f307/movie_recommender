@@ -1,7 +1,7 @@
 import unittest
 
 from cinebot_ml.experiments.matrix import ExperimentCell
-from cinebot_ml.experiments.units import _unit
+from cinebot_ml.experiments.units import EVENTS, _unit
 
 
 def catalog():
@@ -13,6 +13,13 @@ def catalog():
 
 
 class UnitGenerationTests(unittest.TestCase):
+    def test_c5_usa_historico_completo_do_protocolo(self):
+        self.assertEqual(EVENTS["C5"], 15)
+        cell = ExperimentCell("B0", "C5", "P5", "consistent", 42, 5)
+        unit = _unit(cell, catalog(), "a" * 64)["units"][0]
+        self.assertEqual(unit["state_version"], 15)
+        self.assertEqual(len(unit["relevance"]), 9)
+
     def test_historico_neutro_e_relevancia_completa(self):
         cell = ExperimentCell("B0", "C4", "P5", "consistent", 42, 5)
         first = _unit(cell, catalog(), "a" * 64)

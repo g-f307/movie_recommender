@@ -1,7 +1,7 @@
 schema_version: "1.0"
 experiment:
   name: movie-recommender-acm-sac-2027
-  version: "1.0.0-holdout"
+  version: "1.0.1-holdout"
   protocol_version: protocol-v1.0
   frozen: true
 seeds: [42, 137, 2027, 31415, 65537]

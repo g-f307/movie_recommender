@@ -110,7 +110,7 @@ def preflight(root: Path = PROJECT_ROOT) -> dict[str, Any]:
     # Escopo científico v1 definido pelo roadmap; revisão externa não é presumida.
     # O contrato de metadados não prova que os IDs de treino coincidem com
     # o manifesto atual; essa evidência precisa acompanhar o modelo novo.
-    units_root = root / "results/units"
+    units_root = root / "results/units_v1_1"
     missing_units = sum(not (units_root / f"{cell.comparison_id}.json").is_file()
                         for cell in matrix.cells)
     if missing_units:

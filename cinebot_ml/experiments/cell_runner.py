@@ -16,7 +16,7 @@ from cinebot_ml.ranking.evaluation import load_benchmark_units, run_benchmark
 
 def run_cell(cell: ExperimentCell) -> dict[str, Any]:
     """Exige unidade pré-gerada e pareada; não inventa relevância ou estado."""
-    units_root = Path(os.environ.get("CINEBOT_CELL_UNITS_DIR", PROJECT_ROOT / "results/units"))
+    units_root = Path(os.environ.get("CINEBOT_CELL_UNITS_DIR", PROJECT_ROOT / "results/units_v1_1"))
     unit_path = units_root / f"{cell.comparison_id}.json"
     if not unit_path.is_file():
         raise MatrixValidationError(f"Unidade experimental ausente: {unit_path}")

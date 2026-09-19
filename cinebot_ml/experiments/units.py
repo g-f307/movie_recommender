@@ -20,14 +20,16 @@ from cinebot_ml.personalization import FeedbackEvent, ProfileUpdater, StateSnaps
 from cinebot_ml.ranking.candidates import build_candidate_set
 from cinebot_ml.ranking.contracts import RecommendationRequest
 from cinebot_ml.simulation.agents import build_agent, load_agent_config
+from cinebot_ml.simulation.temporal import load_simulation_config
 
 
 HOLDOUT_CONFIG = PROJECT_ROOT / "configs/experiment_v1_holdout.yaml"
 SPLIT = PROJECT_ROOT / "results/manifests/splits/movie_id_split.json"
 HOLDOUT_CATALOG = PROJECT_ROOT / "results/derived/test_catalog.json"
-UNITS = PROJECT_ROOT / "results/units"
+UNITS = PROJECT_ROOT / "results/units_v1_1"
 EPOCH = datetime(2027, 1, 1, tzinfo=timezone.utc)
-EVENTS = {"C0": 0, "C1": 1, "C2": 3, "C3": 5, "C4": 10, "C5": 10}
+_SIMULATION = load_simulation_config()
+EVENTS = {f"C{index}": _SIMULATION.events_for(f"C{index}") for index in range(6)}
 PRIVATE_MARKERS = ("api_key", "apikey", "credential", "email", "name", "password",
                    "phone", "secret", "token")
 

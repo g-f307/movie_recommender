@@ -16,7 +16,7 @@ hiperparâmetros e threshold somente em validação. O artefato experimental
 é limitação a declarar; o dataset contém majoritariamente rótulos proxy.
 
 O catálogo de avaliação em `results/derived/test_catalog.json` contém
-exatamente os IDs do holdout, sem duplicatas. As unidades em `results/units/`
+exatamente os IDs do holdout, sem duplicatas. As unidades em `results/units_v1_1/`
 são pareadas por `comparison_id`, com o mesmo agente, estado, candidatos e
 julgamentos para todos os métodos. A política `neutral-exposure-v1` escolhe
 filmes apresentados por uma permutação determinística independente do
@@ -66,3 +66,9 @@ O manifesto final deve registrar hashes, commit e dimensões. Saídas oficiais
 devem residir em `results/raw/official/`, separadas das do piloto, e somente
 ser congeladas após auditoria integral. A Etapa 5 deve consumir esses arquivos
 sem reexecutar os modelos.
+
+Uma primeira execução parcial foi interrompida ao detectar que o gerador de
+unidades tratava C5 como 10, não 15 eventos. Ela permanece em
+`results/raw/official/` apenas para auditoria de falha operacional. A versão
+`1.0.1-holdout` corrige C5, usa novas unidades e uma nova identidade de matriz;
+nenhum checkpoint da tentativa anterior será reutilizado.
