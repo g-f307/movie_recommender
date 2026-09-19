@@ -63,9 +63,28 @@ manifestos e unidades auxiliares.
 
 Os artefatos grandes, unidades e resultados brutos são ignorados pelo Git.
 O manifesto final deve registrar hashes, commit e dimensões. Saídas oficiais
-devem residir em `results/raw/official/`, separadas das do piloto, e somente
+devem residir em `results/raw/official_v1_1/`, separadas das do piloto, e somente
 ser congeladas após auditoria integral. A Etapa 5 deve consumir esses arquivos
 sem reexecutar os modelos.
+
+Na versão corrigida `1.0.1-holdout`, a saída oficial válida reside em
+`results/raw/official_v1_1/`. Após a conclusão integral, execute
+`python -m cinebot_ml.experiments.finalize`. O comando recusa qualquer falha,
+ausência, divergência de pareamento ou de commit; escreve o manifesto global
+com hashes de cada unidade e célula e torna resultados e artefatos gerados
+somente leitura. O diretório `results/raw/official/` da tentativa interrompida
+não deve ser publicado como resultado.
+
+A matriz corrigida concluiu localmente 15.120/15.120 células em 20min31s.
+A auditoria integral encontrou zero falhas, ausência de métricas ou divergências
+de pareamento e commit. Os arquivos individuais totalizaram 227.336.316 bytes
+(aproximadamente 254 MB ocupados em disco, incluindo manifestos e metadados).
+Esses números descrevem a execução, não o efeito científico dos métodos.
+
+O repositório não possui remoto DVC configurado. Os hashes tornam os artefatos
+locais verificáveis, mas um clone limpo ainda precisa recuperar ou reconstruir
+dataset, modelos e resultados por um canal autorizado. Não se deve declarar
+reprodução independente completa até essa distribuição ser resolvida.
 
 Uma primeira execução parcial foi interrompida ao detectar que o gerador de
 unidades tratava C5 como 10, não 15 eventos. Ela permanece em

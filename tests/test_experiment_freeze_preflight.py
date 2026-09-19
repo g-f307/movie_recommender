@@ -1,4 +1,5 @@
 import unittest
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -37,7 +38,9 @@ class FreezePreflightTests(unittest.TestCase):
             if cell.method == "B1":
                 raise KeyboardInterrupt()
             return {"individual": {"method": cell.method, "ranking_status": "completed",
-                    "evaluation_status": "evaluated", "metrics": {"ndcg_at_k": 0.5}}}
+                    "evaluation_status": "evaluated", "metrics": {"ndcg_at_k": 0.5},
+                    "candidate_set_id": "c", "relevance_id": "r", "agent_id": "a",
+                    "persona": "consistent", "state_version": 0}}
 
         with TemporaryDirectory() as directory:
             root = Path(directory)
@@ -47,10 +50,18 @@ class FreezePreflightTests(unittest.TestCase):
             before = first.read_bytes()
             report = execute_matrix(matrix, root, lambda cell: {
                 "individual": {"method": cell.method, "ranking_status": "completed",
-                "evaluation_status": "evaluated", "metrics": {"ndcg_at_k": 0.5}}})
+                "evaluation_status": "evaluated", "metrics": {"ndcg_at_k": 0.5},
+                "candidate_set_id": "c", "relevance_id": "r", "agent_id": "a",
+                "persona": "consistent", "state_version": 0}})
             self.assertEqual((report.completed, report.skipped), (1, 1))
             self.assertEqual(first.read_bytes(), before)
             self.assertTrue(audit_execution(matrix, root)["complete"])
+            self.assertFalse(audit_execution(matrix, root, expected_commit="a" * 40)["complete"])
+            second = root / matrix.matrix_id / "cells" / f"{cells[1].cell_id}.json"
+            changed = json.loads(second.read_text(encoding="utf-8"))
+            changed["result"]["individual"]["candidate_set_id"] = "different"
+            second.write_text(json.dumps(changed), encoding="utf-8")
+            self.assertFalse(audit_execution(matrix, root)["complete"])
             first.write_text("{broken", encoding="utf-8")
             self.assertFalse(audit_execution(matrix, root)["complete"])
 

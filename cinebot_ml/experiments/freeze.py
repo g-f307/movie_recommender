@@ -126,7 +126,8 @@ def preflight(root: Path = PROJECT_ROOT) -> dict[str, Any]:
     }
 
 
-def audit_execution(matrix: ExperimentMatrix, output: Path) -> dict[str, Any]:
+def audit_execution(matrix: ExperimentMatrix, output: Path,
+                    expected_commit: str | None = None) -> dict[str, Any]:
     """Confere todos os checkpoints, sem confiar apenas no status agregado."""
     directory = output / matrix.matrix_id
     manifest_path = directory / "matrix.manifest.json"
@@ -135,6 +136,7 @@ def audit_execution(matrix: ExperimentMatrix, output: Path) -> dict[str, Any]:
     failures = []
     completed = 0
     bytes_total = 0
+    pairs: dict[str, tuple[Any, ...]] = {}
     for cell in matrix.cells:
         path = directory / "cells" / f"{cell.cell_id}.json"
         if not path.is_file():
@@ -154,7 +156,16 @@ def audit_execution(matrix: ExperimentMatrix, output: Path) -> dict[str, Any]:
                 reason = f"evaluation:{individual['evaluation_status']}"
             elif individual["metrics"].get("ndcg_at_k") is None:
                 reason = "ndcg_missing"
+            elif expected_commit and record["result"]["benchmark_manifest"].get("git_commit") != expected_commit:
+                reason = "commit_mismatch"
             else:
+                signature = (individual["candidate_set_id"], individual["relevance_id"],
+                             individual["agent_id"], individual["persona"],
+                             individual["state_version"])
+                prior = pairs.setdefault(cell.comparison_id, signature)
+                if prior != signature:
+                    failures.append({"cell_id": cell.cell_id, "reason": "pair_mismatch"})
+                    continue
                 completed += 1
                 continue
         except (OSError, ValueError, KeyError, TypeError) as exc:
