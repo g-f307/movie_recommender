@@ -86,12 +86,13 @@ def _config_check() -> str:
     )
     for loader in loaders:
         loader()
+    load_config(PROJECT_ROOT / "configs/experiment_v1_holdout.yaml")
     _load_matrix_config(DEFAULT_MATRIX_CONFIG_PATH)
     load_cold_start_config()
     load_convergence_config()
     load_ablation_variants()
     load_robustness_config()
-    return f"{len(loaders) + 5} configurações, schemas e locks validados"
+    return f"{len(loaders) + 6} configurações, schemas e locks validados"
 
 
 def _tracked_inputs_check() -> str:
@@ -130,8 +131,8 @@ def _b2_artifact_check() -> str:
 def _b3_artifact_check() -> str:
     from cinebot_ml.ranking import SupervisedArtifact
 
-    model = PROJECT_ROOT / "artifacts" / "production_model.joblib"
-    metadata = PROJECT_ROOT / "artifacts" / "model_metadata.json"
+    model = PROJECT_ROOT / "artifacts" / "b3_experiment_v1.joblib"
+    metadata = PROJECT_ROOT / "artifacts" / "b3_experiment_v1.json"
     missing = [path.name for path in (model, metadata) if not path.is_file()]
     if missing:
         raise FileNotFoundError("Artefato B3 ausente: " + ", ".join(missing))

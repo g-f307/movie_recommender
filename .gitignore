@@ -36,4 +36,7 @@ results/raw/
 results/tables/
 results/figures/
 results/reports/
+results/derived/
+results/units/
+results/units_v1_1/
 datasets/*.csv

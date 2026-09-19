@@ -1,0 +1,43 @@
+schema_version: "1.0"
+experiment:
+  name: movie-recommender-acm-sac-2027
+  version: "1.0.1-holdout"
+  protocol_version: protocol-v1.0
+  frozen: true
+seeds: [42, 137, 2027, 31415, 65537]
+k_values: [5, 10]
+paths:
+  catalog: results/derived/test_catalog.json
+  dataset: datasets/movie_preferences.csv
+  feedback: datasets/user_feedback.csv
+  output_root: results
+  split_manifests: results/manifests/splits
+  manifests: results/manifests/executions
+  raw: results/raw
+  tables: results/tables
+  figures: results/figures
+  reports: results/reports
+data_versions:
+  catalog: heldout-catalog-v1
+  dataset: movie-preferences-v1
+  feedback: user-feedback-v1
+methods:
+  enabled: [B0, B1, B2, B3, B4, B5]
+  optional: [B6]
+conditions: [C0, C1, C2, C3, C4, C5]
+profiles: [P0, P1, P2, P3, P4, P5]
+metrics:
+  primary: [ndcg_at_k]
+  secondary: [precision_at_k, recall_at_k, map_at_k, mrr_at_k, hit_rate_at_k, coverage_at_k, diversity_at_k, novelty_at_k, popularity_exposure_at_k, popularity_bias_at_k, ranking_repetition_at_k, ranking_overlap_at_k, rank_position_variation_at_k]
+splits:
+  strategy: deterministic_group_stratification_search
+  temporal_strategy: chronological_replay
+  train_fraction: 0.60
+  validation_fraction: 0.20
+  test_fraction: 0.20
+  attempts: 128
+execution:
+  deterministic_repetitions: 1
+  stochastic_repetitions: 5
+  unit: profile
+  fail_on_dirty_worktree: false
