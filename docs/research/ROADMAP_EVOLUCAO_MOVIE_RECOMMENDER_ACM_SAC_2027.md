@@ -377,6 +377,11 @@ O modelo recebe:
 
 Modelo híbrido final, caso os experimentos demonstrem vantagem.
 
+**Estado da v1:** adiado pela [decisão metodológica sobre B6](b6_decision_v1.md).
+A descrição acima é uma possibilidade histórica do roadmap, não um método
+implementado ou avaliado. Resultados do holdout v1 não podem ser usados para
+formular B6 retroativamente.
+
 ---
 
 # 12. Estratégia experimental

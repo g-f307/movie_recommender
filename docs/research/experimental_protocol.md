@@ -229,6 +229,13 @@ B0–B5 são obrigatórios. B6 é condicional: sua fórmula deverá ser selecion
 treino/validação e congelada antes do teste final. Se isso não ocorrer, B6 será
 omitido e a ausência será registrada.
 
+**Aplicação na execução v1.1:** a decisão metodológica documentada em
+[`b6_decision_v1.md`](b6_decision_v1.md) adiou B6 por ausência de hipótese e
+mecanismo distintos de B5. Somente B0–B5 estão em `methods.enabled` da
+configuração congelada. A presença de B6 em `methods.optional` não significa
+que tenha sido implementado ou avaliado. A decisão não deve ser revista usando
+os resultados do holdout v1.1.
+
 Para B0, a fórmula congelada é a média bayesiana versionada em
 `configs/methods/b0_popularity_v1.yaml`: nota normalizada, quantidade de votos,
 média dos candidatos e quantil 0,60 de votos. A especificação completa está em
