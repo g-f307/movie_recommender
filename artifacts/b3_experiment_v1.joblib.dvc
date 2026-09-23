@@ -1,0 +1,5 @@
+outs:
+- md5: 4609079fc64cb186d62a9687d70082ad
+  size: 230238
+  hash: md5
+  path: b3_experiment_v1.joblib

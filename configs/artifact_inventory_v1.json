@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "policy": {
+    "public": "Synthetic evidence and frozen model artifacts may be distributed after repository-owner approval.",
+    "restricted": "Real feedback and credentials must never be published.",
+    "reconstruct_only": "Large derived training tables are rebuilt from an authorized catalog snapshot."
+  },
+  "dvc_assets": [
+    {
+      "path": "artifacts/b2_tfidf_v1.json",
+      "pointer": "artifacts/b2_tfidf_v1.json.dvc",
+      "classification": "public",
+      "bytes": 224246,
+      "sha256": "83c3254f2dff441ca4fc7d5fb39ed75facd7f4b54828cfa509d27f0100759d48",
+      "dvc_md5": "b8626bfa754c3fae99f03026b268f5ea"
+    },
+    {
+      "path": "artifacts/b3_experiment_v1.joblib",
+      "pointer": "artifacts/b3_experiment_v1.joblib.dvc",
+      "classification": "public",
+      "bytes": 230238,
+      "sha256": "5e884297104acea499c733a59b706d91ee2b7f69593ae708a84cee0f3bd21e57",
+      "dvc_md5": "4609079fc64cb186d62a9687d70082ad"
+    },
+    {
+      "path": "artifacts/b3_experiment_v1.json",
+      "pointer": "artifacts/b3_experiment_v1.json.dvc",
+      "classification": "public",
+      "bytes": 1750,
+      "sha256": "013ab1719764005f4195850811614cc977905a4d58ce9243c2935ac758384af5",
+      "dvc_md5": "ccb59e014f861b12dd298809e657dc45"
+    },
+    {
+      "path": "results/raw/official_v1_1",
+      "pointer": "results/raw/official_v1_1.dvc",
+      "classification": "public",
+      "bytes": 233029507,
+      "files": 15123,
+      "dvc_md5": "ac1f63ad0237db947cfa6a411c05835e.dir",
+      "anchor": "results/raw/official_v1_1/2942e51456add29e4c999307/experiment.manifest.json",
+      "anchor_sha256": "8ec2360300abe8b0561351b8a407958af6cac10127e241e406a60af2b4adf15a"
+    },
+    {
+      "path": "results/units_v1_1",
+      "pointer": "results/units_v1_1.dvc",
+      "classification": "public",
+      "bytes": 55308408,
+      "files": 2520,
+      "dvc_md5": "9af00cfb01098a34ac75d975bfa4e21d.dir"
+    }
+  ],
+  "excluded_assets": [
+    {"path": "datasets/user_feedback.csv", "classification": "restricted", "reason": "May contain real interaction data."},
+    {"path": ".env", "classification": "restricted", "reason": "Contains local credentials and secrets."},
+    {"path": "data/filmes.json", "classification": "restricted", "reason": "Source catalog distribution authorization is not recorded."},
+    {"path": "datasets/movie_preferences.csv", "classification": "reconstruct_only", "reason": "Large derived Cartesian dataset; current file differs from its legacy pointer."},
+    {"path": "datasets/reference_features.csv", "classification": "reconstruct_only", "reason": "Derived training features; rebuild through the frozen pipeline."}
+  ]
+}

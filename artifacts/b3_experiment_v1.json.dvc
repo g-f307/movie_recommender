@@ -1,0 +1,5 @@
+outs:
+- md5: ccb59e014f861b12dd298809e657dc45
+  size: 1750
+  hash: md5
+  path: b3_experiment_v1.json
