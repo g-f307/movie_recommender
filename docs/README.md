@@ -21,6 +21,7 @@
 - [`research/experiment_freeze_preflight.md`](research/experiment_freeze_preflight.md): matriz piloto e verificação de pré-requisitos do congelamento.
 - [`research/b6_decision_v1.md`](research/b6_decision_v1.md): decisão pré-holdout de adiar B6 na versão 1.
 - [`research/statistical_analysis.md`](research/statistical_analysis.md): análise pareada principal B5 × B4, integridade e reprodução.
+- [`research/subgroup_analysis.md`](research/subgroup_analysis.md): análise exploratória por condição, perfil, persona, seed e K.
 - [`research/personalization_contract.md`](research/personalization_contract.md): estado imutável, eventos de feedback e cadeia versionada de snapshots.
 - [`research/profile_update.md`](research/profile_update.md): política, equação e controles da atualização incremental do perfil.
 - [`research/synthetic_agents.md`](research/synthetic_agents.md): personas, preferências latentes e política reproduzível de feedback sintético.
