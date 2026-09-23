@@ -1,5 +1,6 @@
 joblib>=1.4,<2
 jsonschema>=4.23,<5
+matplotlib>=3.9,<4
 numpy>=1.26,<3
 pandas>=2.2,<4
 PyYAML>=6,<7
