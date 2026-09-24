@@ -1,4 +1,4 @@
-.PHONY: setup setup-full validate test compile smoke readiness prepare-b2 prepare-b3 ablation robustness contrasts discovery-cost
+.PHONY: setup setup-full validate test compile smoke readiness prepare-b2 prepare-b3 ablation robustness contrasts discovery-cost external-validation
 
 PYTHON ?= python3
 
@@ -45,3 +45,6 @@ contrasts:
 
 discovery-cost:
 	$(PYTHON) -m cinebot_ml.analysis.discovery_cost
+
+external-validation:
+	$(PYTHON) -m cinebot_ml.analysis.external_validation
