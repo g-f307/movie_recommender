@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "frozen": true,
+  "study": "external-validation-movielens-100k-v1",
+  "selection_registered_before_download": true,
+  "selection_criteria": {
+    "anonymous_user_ids": true,
+    "timestamped_interactions": true,
+    "stable_movie_ids": true,
+    "research_license": true,
+    "minimum_ratings": 100000,
+    "minimum_users": 900,
+    "required_methods": ["B0", "B4", "B5"]
+  },
+  "dataset": {
+    "name": "MovieLens 100K",
+    "release": "April 1998 stable benchmark",
+    "origin": "GroupLens Research, University of Minnesota",
+    "url": "https://files.grouplens.org/datasets/movielens/ml-100k.zip",
+    "readme": "https://files.grouplens.org/datasets/movielens/ml-100k-README.txt",
+    "checksum_url": "https://files.grouplens.org/datasets/movielens/ml-100k.zip.md5",
+    "citation": "F. Maxwell Harper and Joseph A. Konstan. 2015. The MovieLens Datasets: History and Context. ACM TiiS 5(4), Article 19. https://doi.org/10.1145/2827872",
+    "license_summary": "research use with acknowledgment; no endorsement; no commercial use without permission; raw redistribution requires separate permission",
+    "raw_redistribution": false
+  },
+  "split": {
+    "strategy": "global chronological",
+    "train_fraction": 0.7,
+    "adaptation_fraction": 0.1,
+    "test_fraction": 0.2,
+    "tie_breakers": ["timestamp", "user_id", "movie_id"],
+    "minimum_train_events_per_user": 5,
+    "minimum_adaptation_events_per_user": 1,
+    "minimum_relevant_test_items_per_user": 1
+  },
+  "semantics": {
+    "positive_rating_minimum": 4,
+    "negative_rating_maximum": 2,
+    "neutral_rating": 3,
+    "profile": "genre weights from each user's chronological train ratings",
+    "incremental_update": "add signed genre evidence from the adaptation window without tuning",
+    "candidate_policy": "all catalog movies unseen by the user in train and adaptation",
+    "relevance": "test ratings >= 4",
+    "k": 5
+  },
+  "methods": {
+    "B0": "Bayesian popularity fitted only on global train",
+    "B4": "static genre profile from user train history",
+    "B5": "B4 profile plus signed adaptation-window genre updates"
+  },
+  "inference": {
+    "unit": "anonymous MovieLens user",
+    "primary_contrast": "B5_minus_B4_ndcg_at_5",
+    "secondary_contrast": "B5_minus_B0_ndcg_at_5",
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 42,
+    "alpha": 0.05
+  }
+}
