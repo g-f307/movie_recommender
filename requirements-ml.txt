@@ -6,7 +6,7 @@ seaborn
 scikit-learn
 joblib
 mlflow
-dvc
+dvc[s3]
 evidently
 requests
 python-dotenv

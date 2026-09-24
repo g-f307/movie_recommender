@@ -1,3 +1,7 @@
 [core]
     no_scm = false
-
+    remote = artifacts
+['remote "artifacts"']
+    url = s3://movie-recommender-dvc
+    endpointurl = https://7dbe2af30f62bc8ec82bffd7607ec31d.r2.cloudflarestorage.com
+    region = auto

@@ -1,0 +1,5 @@
+outs:
+- md5: b8626bfa754c3fae99f03026b268f5ea
+  size: 224246
+  hash: md5
+  path: b2_tfidf_v1.json
