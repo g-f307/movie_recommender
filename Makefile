@@ -1,4 +1,4 @@
-.PHONY: setup setup-full validate test compile smoke readiness prepare-b2 prepare-b3
+.PHONY: setup setup-full validate test compile smoke readiness prepare-b2 prepare-b3 ablation
 
 PYTHON ?= python3
 
@@ -33,3 +33,6 @@ prepare-b2:
 
 prepare-b3:
 	$(PYTHON) train_ml.py
+
+ablation:
+	$(PYTHON) -m cinebot_ml.analysis.ablation_execution

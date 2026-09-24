@@ -1,0 +1,11 @@
+version: "1.0"
+frozen: true
+partition: validation
+profile: P5
+conditions: [C1, C2, C3, C4, C5]
+personas: [broad, consistent, contradictory, exploratory, noisy, popularity_sensitive, specific]
+seeds: [11, 23, 47, 89, 179]
+k: 5
+bootstrap_resamples: 10000
+bootstrap_seed: 6901
+output_root: results/derived/specialized_v1/ablation
