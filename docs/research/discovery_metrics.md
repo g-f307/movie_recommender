@@ -22,8 +22,10 @@ distância máxima. A métrica é nula quando não existe par comparável; para 
 ## Novidade e exposição à popularidade
 
 A referência de popularidade contém contagens por filme, versão e partição. A
-implementação aceita somente `partition=train`, impedindo o uso de validação ou
-teste. A identidade da distribuição é registrada em cada resultado.
+implementação aceita `partition=train` para frequências de interação ou
+`partition=catalog_metadata` para metadados externos congelados, como a contagem
+de votos usada no estudo da issue #72. Validação e teste comportamental continuam
+proibidos como fonte. A identidade da distribuição é registrada em cada resultado.
 
 As probabilidades recebem suavização aditiva: `p_i=(count_i+1)/(Σcount+N)`.
 A novidade de um item é sua autoinformação `-log2(p_i)`, normalizada pela maior

@@ -52,6 +52,10 @@ results/derived/specialized_v1/*
 results/derived/specialized_v1/contrasts/*
 !results/derived/specialized_v1/contrasts/*.dvc
 !results/derived/specialized_v1/contrasts/.gitignore
+!results/derived/specialized_v1/discovery_cost/
+results/derived/specialized_v1/discovery_cost/*
+!results/derived/specialized_v1/discovery_cost/*.dvc
+!results/derived/specialized_v1/discovery_cost/.gitignore
 results/derived/specialized_v1/ablation/*
 !results/derived/specialized_v1/ablation/*.dvc
 !results/derived/specialized_v1/ablation/.gitignore

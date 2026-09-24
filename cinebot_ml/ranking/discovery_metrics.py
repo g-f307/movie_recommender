@@ -14,7 +14,7 @@ from cinebot_ml.ranking.contracts import MovieId
 from cinebot_ml.ranking.metrics import RankingMetricError
 
 
-ALLOWED_POPULARITY_PARTITIONS = {"train"}
+ALLOWED_POPULARITY_PARTITIONS = {"train", "catalog_metadata"}
 
 
 def _hash(value: Any) -> str:
@@ -30,7 +30,7 @@ class PopularityReference:
 
     def __post_init__(self) -> None:
         if self.partition not in ALLOWED_POPULARITY_PARTITIONS:
-            raise RankingMetricError("Popularidade deve ser calculada somente na partição train.")
+            raise RankingMetricError("Popularidade exige partição train ou metadado congelado do catálogo.")
         if not self.version.strip() or not self.counts:
             raise RankingMetricError("Distribuição de popularidade deve possuir versão e itens.")
         if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in self.counts.values()):
@@ -57,7 +57,7 @@ def _validate_ranking(ranking: Sequence[MovieId], k: int) -> None:
 def _tokens(movie: Mapping[str, Any]) -> set[str]:
     values: set[str] = set()
     for feature, keys in {
-        "genre": ("generos", "genres"),
+        "genre": ("generos", "genres", "genero", "genre", "generos_secundarios"),
         "director": ("diretores", "directors", "diretor", "director"),
         "keyword": ("palavras_chave", "keywords"),
     }.items():

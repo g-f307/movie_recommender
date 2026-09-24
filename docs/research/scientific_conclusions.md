@@ -18,8 +18,8 @@ As análises confirmatórias incluem B5 contra B4 em NDCG@5 e os contrastes pré
 | RQ1 | H1 — benefício do feedback | B5 − B4=−0,01809; IC95% [−0,03427; −0,00222]; Wilcoxon p=0,03562; rank-biserial=−0,40635; 9 ganhos, 26 perdas; n=35 | **Não sustentada:** o sinal é contrário. |
 | RQ2 | H2 — aprendizado progressivo | Friedman C0–C5: χ²=9,3473; p=0,09599; n=35. B5 contra C0: C1 −0,01314; C2 −0,01793; C3 −0,01611; C4 −0,01575; C5 +0,01070 | **Não sustentada:** sem tendência positiva global ou convergência demonstrada. |
 | RQ4 | H3 — mitigação do cold start | P5−P0 sob B5=+0,28188; IC95% [0,22880; 0,33677]; Holm p=2,33×10⁻¹⁰; rank-biserial=0,99683; n=35 | **Sustentada no simulador:** P5 supera P0, sem monotonicidade garantida entre perfis intermediários. |
-| RQ4 | H4 — personalização versus popularidade | B5−B0 pós-feedback=+0,18983; IC95% [0,13468; 0,24853]; Holm p=8,63×10⁻⁸; rank-biserial=0,91111; n=35 | **Parcialmente sustentada:** relevância favorece B5, mas descoberta e cobertura ainda são necessárias. |
-| RQ3 | H5 — relevância sem perda de diversidade | O ganho de relevância falhou em H1; margem de não inferioridade não congelada; novidade e viés de popularidade indisponíveis | **Não sustentada:** falhou condição necessária e não inferioridade não foi testada. |
+| RQ4 | H4 — personalização versus popularidade | B5−B0 pós-feedback=+0,18983 em NDCG@5; novidade 0,61091×0,41594; cobertura 0,97627×0,02373; latência mediana 80,19×18,70 ms | **Sustentada no simulador:** B5 supera B0 em qualidade e descoberta, com maior custo. |
+| RQ3 | H5 — relevância sem perda de diversidade | Diversidade B5−B4=−0,00553; IC95% [−0,00937; −0,00172]; margem=−0,05; p unilateral=2,91×10⁻¹¹. Relevância=−0,01809 | **Não sustentada:** diversidade é não inferior, mas falhou o ganho simultâneo de relevância. |
 | RQ5 | contribuição por ablação | Em validação, remover gênero reduziu NDCG@5 em 0,1656 e remover década/popularidade reduziu 0,0489; remover histórico elevou 0,0380. Todos com IC95% sem zero e Holm aplicado | **Parcialmente sustentada:** gênero e década/popularidade ajudam, enquanto o histórico incremental completo prejudica neste simulador. |
 
 Em H1 não se aplica correção por multiplicidade por ser a comparação primária original. H3 e o componente de relevância de H4 formam uma família corrigida por Holm. Nos subgrupos, Holm foi aplicado por dimensão e K. Em H2, o teste global não rejeitou a hipótese nula e não houve pós-testes.
@@ -36,13 +36,15 @@ Não surgiu quantidade de interações com melhora estável. B5 ficou abaixo de 
 
 ### RQ3 — relevância versus descoberta
 
-O trade-off não foi decidido. A relevância caiu, não há margem congelada para diversidade, e novidade/viés de popularidade estão ausentes. Diversidade favorável, se observada, não resgataria H5 sem ganho de relevância.
+B5 preservou diversidade frente a B4 e ampliou novidade e cobertura, mas reduziu NDCG@5. A margem de não inferioridade de −0,05 foi congelada antes da execução e atendida; ainda assim, H5 não é sustentada porque o ganho simultâneo de relevância era condição necessária. O resultado caracteriza um trade-off, sem score composto para mascará-lo.
 
 ### RQ4 — qualidade, complexidade e custo
 
 P5 superou P0 sob B5 em 0,28188 NDCG@5, sustentando mitigação de cold start no simulador, embora somente 6 de 35 agentes tenham exibido progressão integralmente não decrescente entre P0 e P5. B5 também superou B0 após feedback em 0,18983, com resultado preservado em K=10.
 
-Esses contrastes sustentam H3 e o componente de relevância de H4, mas não provam uma “melhor relação qualidade–custo”. H4 permanece condicionada às métricas de descoberta e cobertura, e a vantagem contra popularidade não elimina a perda de B5 contra B4.
+H4 é sustentada no simulador: contra B0, B5 melhora relevância, novidade, cobertura e viés de popularidade, mas sua latência mediana é 80,19 ms contra 18,70 ms. Frente a B4, B5 ganha cobertura e novidade, mantém diversidade dentro da margem, custa mais e perde relevância.
+
+Não há “melhor relação qualidade–custo” universal. Os seis métodos permaneceram na fronteira multidimensional de Pareto porque preservam compromissos distintos; escolher um campeão exigiria pesos externos previamente justificados.
 
 ### RQ5 — contribuição dos componentes
 
@@ -66,7 +68,7 @@ A ablação e a robustez tornam mais específica a explicação: remover todo o 
 
 - NDCG@5 sintético mede alinhamento com preferências latentes, não satisfação.
 - Agentes são arquétipos, não pessoas ou grupos demográficos; seus eventos não são feedback real.
-- Novidade e viés estão ausentes; diversidade não tem margem congelada.
+- Novidade e viés dependem dos votos do catálogo congelado como proxy externa; a margem de diversidade foi uma escolha substantiva prévia de cinco pontos percentuais.
 - O catálogo filtrado pode reduzir cauda longa, ambiguidade e casos reais.
 
 ### Externa
@@ -77,7 +79,7 @@ A ablação e a robustez tornam mais específica a explicação: remover todo o 
 ### Conclusão
 
 - H1 respeita pareamento, IC, teste e efeito; p=0,03562 não transforma uma diferença pequena em grande efeito prático.
-- H2–H5 têm lacunas e foram classificadas conservadoramente.
+- H2 e H5 não foram sustentadas; H3 e H4 foram sustentadas somente no domínio sintético avaliado.
 - Subgrupos continuam exploratórios após Holm; persona e seed têm n pequeno.
 - Ausências não foram imputadas e resultados negativos não foram removidos.
 
@@ -89,14 +91,14 @@ O artigo deve separar engenharia, achado confirmatório no simulador, achados ex
 
 ## Trabalho futuro prioritário
 
-1. congelar margem e medir diversidade, novidade, cobertura e popularidade;
-2. medir custos comparáveis de RQ4 e completar a decisão de H4;
-3. investigar regularização, taxa, esquecimento e confiança para explicar a perda B5×B4;
-4. validar em dados públicos e, quando viável, protocolo humano autorizado.
+1. investigar regularização, taxa, esquecimento e confiança para explicar a perda B5×B4;
+2. validar em dados públicos independentes;
+3. repetir custos em hardware reportável se comparações de desempenho forem centrais;
+4. quando viável, executar protocolo humano autorizado.
 
 ## Rastreabilidade e reprodução
 
-Fontes: [`research_questions.md`](research_questions.md), [`experimental_protocol.md`](experimental_protocol.md), [`statistical_analysis.md`](statistical_analysis.md), [`confirmatory_contrasts.md`](confirmatory_contrasts.md), [`subgroup_analysis.md`](subgroup_analysis.md), [`experiment_synthesis.md`](experiment_synthesis.md), [`scientific_reporting.md`](scientific_reporting.md) e [`artifact_reproduction.md`](artifact_reproduction.md).
+Fontes: [`research_questions.md`](research_questions.md), [`experimental_protocol.md`](experimental_protocol.md), [`statistical_analysis.md`](statistical_analysis.md), [`confirmatory_contrasts.md`](confirmatory_contrasts.md), [`discovery_and_cost.md`](discovery_and_cost.md), [`subgroup_analysis.md`](subgroup_analysis.md), [`experiment_synthesis.md`](experiment_synthesis.md), [`scientific_reporting.md`](scientific_reporting.md) e [`artifact_reproduction.md`](artifact_reproduction.md).
 
 ```bash
 python -m cinebot_ml.analysis.reporting --output-root results/scientific_report_v1

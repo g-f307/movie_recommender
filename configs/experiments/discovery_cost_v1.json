@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "frozen": true,
+  "study": "discovery-and-cost-v1",
+  "source_matrix_id": "2942e51456add29e4c999307",
+  "primary_k": 5,
+  "sensitivity_k": 10,
+  "post_feedback_conditions": ["C1", "C2", "C3", "C4", "C5"],
+  "diversity_noninferiority": {
+    "contrast": "B5_minus_B4",
+    "absolute_margin": -0.05,
+    "alpha": 0.05,
+    "rationale": "Cinco pontos percentuais na escala normalizada [0,1] representam a maior perda tolerável antes da análise; a margem é conservadora e não foi estimada dos resultados."
+  },
+  "popularity_reference": {
+    "source": "vote_count metadata from the frozen evaluation catalog",
+    "partition": "catalog_metadata",
+    "version": "test-catalog-v1",
+    "field": "votos"
+  },
+  "coverage": {
+    "denominator": "all 295 unique items in the frozen eligible evaluation catalog"
+  },
+  "efficiency": {
+    "sample": "one C5/P5/K10 unit per persona at seed 42",
+    "warmup": 3,
+    "repetitions": 20,
+    "clock": "time.perf_counter_ns",
+    "memory": "tracemalloc peak incremental bytes",
+    "training_time": "not_applicable_for_frozen_pretrained_artifacts"
+  }
+}
