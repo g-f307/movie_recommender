@@ -27,6 +27,8 @@
 - [`research/artifact_reproduction.md`](research/artifact_reproduction.md): recuperação e validação independente dos artefatos via DVC.
 - [`research/reproduction_log_v1.md`](research/reproduction_log_v1.md): registro da reprodução independente da execução oficial.
 - [`research/scientific_conclusions.md`](research/scientific_conclusions.md): decisões H1–H5, respostas RQ1–RQ5 e ameaças à validade.
+- [`research/external_validation_protocol.md`](research/external_validation_protocol.md): protocolo pré-especificado da validação externa no MovieLens 100K.
+- [`research/external_validation_results.md`](research/external_validation_results.md): resultados, transportabilidade e limites da evidência pública.
 - [`research/personalization_contract.md`](research/personalization_contract.md): estado imutável, eventos de feedback e cadeia versionada de snapshots.
 - [`research/profile_update.md`](research/profile_update.md): política, equação e controles da atualização incremental do perfil.
 - [`research/synthetic_agents.md`](research/synthetic_agents.md): personas, preferências latentes e política reproduzível de feedback sintético.

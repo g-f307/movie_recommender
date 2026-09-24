@@ -1,0 +1,312 @@
+\documentclass[sigconf,anonymous,review,natbib=false]{acmart}
+
+\AtBeginDocument{\providecommand\BibTeX{{Bib\TeX}}}
+\setcopyright{none}
+\settopmatter{printacmref=false,printfolios=true}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\acmYear{2027}
+\acmConference[SAC '27]{The 42nd ACM/SIGAPP Symposium on Applied Computing}{April 5--9, 2027}{Gwangju, South Korea}
+
+\RequirePackage[datamodel=acmdatamodel,style=acmnumeric]{biblatex}
+\addbibresource{movie_recommender_references.bib}
+
+\begin{document}
+
+\title{When Incremental Feedback Hurts: A Reproducible Synthetic Evaluation of Cold-Start Movie Recommendation}
+\renewcommand{\shorttitle}{When Incremental Feedback Hurts}
+
+\begin{abstract}
+Conversational recommender systems can elicit initial preferences and then
+adapt their rankings from explicit feedback. However, adaptation does not
+necessarily improve recommendation quality, especially when feedback is scarce
+and the initial profile is already informative. This paper presents a
+reproducible evaluation of incremental personalization for cold-start movie
+recommendation. We compare six methods, from popularity and content-based
+baselines to static-profile and incremental recommenders, across 15,120 frozen
+experimental cells generated from 35 independent synthetic agents. The primary
+paired analysis compares the incremental method with its static-profile
+control using NDCG@5. Incremental personalization decreased NDCG@5 by 0.0181
+(3.25\% relative to the static baseline; 95\% bootstrap CI
+$[-0.0343,-0.0022]$; two-sided Wilcoxon $p=0.0356$; rank-biserial
+correlation $=-0.406$). Twenty-six agents lost quality and nine improved.
+Performance did not increase monotonically with additional feedback, and a
+Friedman test across feedback conditions was not significant ($p=0.0960$).
+Exploratory subgroup results indicate larger losses for richer initial
+profiles. These findings do not establish effects on human users; they show
+that, under a controlled and versioned simulator, an unregularized feedback
+update can displace a strong initial profile and harm ranking quality. A preregistered external evaluation on MovieLens 100K retained 43 eligible
+users: B5 and B4 tied for every user, while B5 underperformed popularity by
+0.0785 NDCG@5. This partial, semantically adapted validation neither replicates
+nor reverses the synthetic effect. The work contributes traceable infrastructure,
+negative evidence, and an explicit boundary on transportability.
+\end{abstract}
+
+\begin{CCSXML}
+<ccs2012>
+ <concept>
+  <concept_id>10002951.10003260.10003277</concept_id>
+  <concept_desc>Information systems~Recommender systems</concept_desc>
+  <concept_significance>500</concept_significance>
+ </concept>
+ <concept>
+  <concept_id>10002951.10003260.10003309</concept_id>
+  <concept_desc>Information systems~Evaluation of retrieval results</concept_desc>
+  <concept_significance>300</concept_significance>
+ </concept>
+ <concept>
+  <concept_id>10010147.10010257</concept_id>
+  <concept_desc>Computing methodologies~Machine learning</concept_desc>
+  <concept_significance>100</concept_significance>
+ </concept>
+</ccs2012>
+\end{CCSXML}
+
+\ccsdesc[500]{Information systems~Recommender systems}
+\ccsdesc[300]{Information systems~Evaluation of retrieval results}
+\ccsdesc[100]{Computing methodologies~Machine learning}
+
+\keywords{recommender systems, cold start, incremental personalization,
+synthetic agents, reproducibility}
+
+\maketitle
+
+\section{Introduction}
+
+Recommender systems reduce information overload by ranking items according to
+estimated user preferences~\cite{ricci2015recommender}. A persistent challenge
+is user cold start: before interaction history exists, collaborative evidence
+is unavailable and personalization must rely on limited elicited information
+or non-personalized priors~\cite{schein2002methods}. Conversational interfaces
+offer a practical response by collecting preferences and explicit feedback
+during interaction~\cite{jannach2021survey}. Yet the existence of feedback does
+not imply that every update policy improves the next ranking. Sparse,
+contradictory, or exposure-biased observations may move the representation away
+from an already useful declared profile.
+
+This paper studies that failure mode in a movie recommender. A user starts with
+up to three ranked genres, a decade preference, and a popularity preference.
+The incremental method updates this representation after positive and negative
+feedback. We ask whether this update improves ranking quality over the same
+recommender with a static profile, how quality changes with more feedback, and
+how the effect varies across cold-start profiles and simulated behaviors.
+
+The study makes three contributions. First, it provides a common ranking
+contract and a frozen, hash-validated matrix covering six methods, six feedback
+conditions, six cold-start profiles, seven synthetic personas, five seeds, and
+two list sizes. Second, it performs a paired analysis at the independent-agent
+level rather than treating repeated rankings as independent observations.
+Third, it preserves a negative result: incremental feedback significantly
+reduced NDCG@5 relative to a static-profile control in the simulated setting.
+The claim is deliberately bounded to the generator and catalog used; no human
+preference or satisfaction claim is made.
+
+\section{Background and Related Work}
+
+Content-based recommendation represents users and items in a shared feature
+space, making it suitable when interaction histories are limited
+~\cite{lops2011content}. Hybrid systems combine complementary signals to reduce
+the limitations of individual recommenders~\cite{burke2002hybrid}. Evaluation,
+however, must match the task: classification accuracy over constructed labels
+does not replace ranking evaluation, and offline metrics do not directly imply
+user utility~\cite{herlocker2004evaluating}.
+
+Cold-start studies have long emphasized the distinction between accuracy and
+the ability to learn useful preferences from little evidence
+~\cite{schein2002methods}. Conversational recommendation adds preference
+elicitation and interaction, but also introduces choices about question policy,
+feedback interpretation, and online updates~\cite{jannach2021survey}. Beyond
+relevance, recommender evaluation may consider diversity, novelty, coverage,
+and popularity effects~\cite{castells2022novelty}. Our analyses report ranking, discovery, robustness, ablation, and cost outcomes,
+while preserving their confirmatory or exploratory status.
+
+\section{Research Questions}
+
+The primary question (RQ1) asks whether incremental positive and negative
+feedback improves NDCG@5 over a static initial profile. H1 predicts a positive
+paired difference between the incremental method B5 and static method B4. RQ2
+asks whether ranking quality increases as the available history grows from zero
+to one, three, five, ten, and all prior interactions (H2). Exploratory questions
+consider cold-start information, popularity, discovery, and component
+contribution. Only RQ1/H1 is treated as confirmatory in this version.
+
+\section{Methodology}
+
+\subsection{Catalog, profiles, and agents}
+
+The experiment uses a frozen movie catalog with structured and textual
+metadata. Candidate identity and eligibility are shared by all methods in a
+comparison. Cold-start profiles P0--P5 progressively expose no declared
+preference, one genre, three ranked genres, decade, popularity, and available
+feedback. Synthetic agents implement seven versioned behavioral personas,
+including consistent, noisy, contradictory, exploratory, broad, specific, and
+popularity-sensitive behaviors. Each persona is instantiated under five seeds,
+yielding 35 independent longitudinal units.
+
+Synthetic agents are used because the available real feedback is insufficient
+for inference. Their latent preferences generate controlled relevance and
+feedback. This enables reproducible stress testing but creates construct and
+external-validity limitations: agents are not people, personas are not
+demographic groups, and shared feature assumptions can introduce circularity.
+
+\subsection{Compared methods}
+
+We evaluate B0 popularity, B1 content-based similarity, B2 TF--IDF cosine
+similarity, B3 supervised relevance, B4 static profile, and B5 incremental
+personalization. B4 and B5 share the same base representation and candidates;
+B5 alone incorporates feedback available before the current ranking. A planned
+hybrid B6 was excluded before holdout evaluation because no distinct,
+validation-selected mechanism had been frozen.
+
+\subsection{Experimental design and reproducibility}
+
+The full factorial matrix contains 15,120 cells: six methods, six feedback
+conditions C0--C5, six profiles P0--P5, seven personas, five seeds, and
+$K\in\{5,10\}$. Every cell records method and protocol versions, seed, candidate
+identity, logical time, metrics, and status. Manifests and cell hashes prevent
+mixing pilot, interrupted, or official executions. Code, configuration, DVC
+pointers, and derived-report commands are versioned; credentials and sensitive
+or unauthorized data are excluded.
+
+\subsection{Metrics and statistical analysis}
+
+NDCG@5 is the primary metric. For H1, observations from C1--C5 and P0--P5 are
+first averaged within each agent and method. C0 is excluded because B5 has not
+received feedback and is contractually equivalent to B4. The 35 resulting B5
+and B4 values are compared by their paired difference. We report the mean,
+median, a paired bootstrap 95\% confidence interval with 10,000 resamples and
+seed 42, a two-sided Wilcoxon signed-rank test, and paired rank-biserial
+correlation. H1 requires a positive difference, compatible confidence interval,
+the pre-defined significance threshold, and a reported effect size.
+
+For RQ2, B5 is compared across C0--C5 within agents by a Friedman test.
+Post-hoc comparisons against C0 are allowed only if the global test rejects the
+null hypothesis. Subgroup analyses by condition, profile, persona, seed, and K
+are exploratory and use Holm correction within each dimension and K.
+
+\section{Results}
+
+\subsection{Primary comparison}
+
+Table~\ref{tab:primary} reports the confirmatory result. B5 obtained lower mean
+NDCG@5 than B4. The mean paired difference was $-0.0181$, or $-3.25\%$ relative
+to B4. Its confidence interval excluded zero, and the effect was negative and
+moderate by rank-biserial correlation. H1 is therefore not supported; the data
+instead provide evidence of harm within the synthetic environment.
+
+\begin{table}[t]
+  \caption{Primary paired analysis at the synthetic-agent level.}
+  \label{tab:primary}
+  \begin{tabular}{lr}
+    \toprule
+    Quantity & Value \\
+    \midrule
+    Independent agents & 35 \\
+    Mean NDCG@5, B4 & 0.5562 \\
+    Mean NDCG@5, B5 & 0.5381 \\
+    Mean B5 $-$ B4 & $-0.0181$ \\
+    Bootstrap 95\% CI & $[-0.0343,-0.0022]$ \\
+    Wilcoxon $p$ (two-sided) & 0.0356 \\
+    Rank-biserial correlation & $-0.4063$ \\
+    Gains / losses / ties & 9 / 26 / 0 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Feedback quantity and cold start}
+
+B5 mean NDCG@5 relative to C0 changed by $-0.0131$, $-0.0179$, $-0.0161$,
+$-0.0158$, and $+0.0107$ at C1--C5, respectively. The trajectory is not
+monotonic. The Friedman test did not reject equal performance across conditions
+($\chi^2=9.3473$, $p=0.0960$), so post-hoc tests were not performed and H2 is
+not supported.
+
+Cold-start summaries show a substantial descriptive difference between P0 and
+P5 (B5: 0.3251 versus 0.6271; B4: 0.2926 versus 0.6738). A pre-specified paired contrast found P5--P0 under B5 equal to 0.2819
+(Holm-adjusted $p=2.33\times10^{-10}$; rank-biserial $=0.9968$),
+supporting H3 only inside the simulator.
+
+\subsection{Exploratory heterogeneity}
+
+After Holm correction, negative B5--B4 effects remained for C3 and profiles
+P3--P5 at K=5, and P3 at K=10. For P5/K=5, the difference was $-0.0560$
+(95\% CI $[-0.0871,-0.0267]$; raw $p=0.00183$; Holm $p=0.00930$;
+rank-biserial $=-0.6411$). Only seed 42 favored B5 on average; the other four
+seeds were negative. Persona and seed estimates have only five and seven units,
+respectively, and are treated as imprecise diagnostics.
+
+Across methods, descriptive mean NDCG@5 was 0.5549 for B1/B4, 0.5399 for B5,
+0.5230 for B3, 0.4598 for B2, and 0.3471 for B0. B5 exceeded B0 by 0.1898 NDCG@5 in the synthetic paired contrast and increased
+novelty and coverage, at a higher median latency (80.19 versus 18.70 ms).
+
+\section{Discussion}
+
+The result challenges the assumption that more interaction automatically means
+better recommendation. B4 already receives a structured profile. An
+unregularized update from sparse feedback can overreact to a small exposed set
+and displace useful prior information. Larger exploratory losses for P3--P5 are
+consistent with this mechanism: the richer the initial profile, the more there
+is to damage. Validation-only ablations support this interpretation: removing the complete
+history increased NDCG@5 by 0.0380, whereas removing genre reduced it by 0.1656.
+Contradictory-feedback stress tests produced a 0.2077 loss relative to B4; these
+remain simulator-specific mechanism checks, not human causal effects.
+
+The statistically detectable average loss is practically modest, but its
+direction is consistent for 26 of 35 agents and its effect size is not trivial.
+The correct engineering response is not to discard feedback; it is to gate or
+regularize updates, model confidence, and test contradictory and random signals.
+The negative result also illustrates why near-perfect classification against a
+constructed relevance proxy would be insufficient: the downstream ranking can
+still deteriorate after adaptation.
+
+\subsection{External validation}
+
+We evaluated transportability on MovieLens 100K~\cite{harper2015movielens}
+using a frozen global chronological 70/10/20 split. Of 943 users, 43 met the
+pre-specified history and relevance criteria. B5--B4 was exactly 0.0000
+(95\% CI [0.0000, 0.0000]; 43 ties), whereas B5--B0 was -0.0785
+(95\% CI [-0.1289, -0.0341]; $p=0.00428$). The external B4/B5 variants
+use genre histories rather than declared profiles and simulated conditions, so
+the neutral result is classified as inconclusive partial transportability.
+Synthetic and public samples were never pooled.
+
+\section{Threats to Validity}
+
+\textbf{Internal validity.} Pairing and hash validation reduce execution mixing
+and pseudo-replication. Validation-only ablations and robustness runs isolate mechanisms without
+reusing the official holdout, but they do not establish human causality.
+
+\textbf{Construct validity.} Synthetic NDCG measures alignment with latent
+simulated preferences, not satisfaction or perceived usefulness. Method,
+feedback, and relevance share a feature domain, creating potential circularity.
+Novelty and popularity bias are unavailable, and no diversity non-inferiority
+margin was frozen.
+
+\textbf{External validity.} The filtered catalog and seven personas do not
+represent the full variety of people, contexts, and preference drift. Real feedback is scarce and no prospective human experiment was performed.
+MovieLens adds observed ratings but only partial construct compatibility and low
+eligible-user coverage. Findings cannot be generalized to Telegram users.
+
+\textbf{Conclusion validity.} The primary analysis respects the independent
+unit and reports uncertainty and effect size. Subgroups remain exploratory even
+after multiplicity correction. Missing studies are reported as unavailable,
+not as null effects.
+
+\section{Conclusion and Next Steps}
+
+In a reproducible synthetic experiment, incremental personalization reduced
+NDCG@5 relative to a static-profile recommender and did not improve monotonically
+with more feedback. The contribution is therefore not a claim that B5 is a
+better recommender. It is an auditable evaluation showing that naive adaptation
+can harm a strong cold-start profile and that repeated observations must be
+analyzed at the agent level.
+
+Ablation, robustness, confirmatory contrasts, discovery and cost analyses, and
+a partial external validation are now complete. The evidence supports the
+narrow conclusion that naive adaptation can be harmful or inert across the two
+evaluated settings; it does not establish human utility. Future work should
+validate a regularized mechanism on denser public histories and, when feasible,
+under an authorized human protocol.
+
+\printbibliography
+
+\end{document}

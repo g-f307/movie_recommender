@@ -1,9 +1,9 @@
 # Conclusões científicas, decisões e ameaças à validade
 
-**Versão:** 1.0
+**Versão:** 1.1
 **Issue:** #62 — `docs(scientific-conclusions): decidir H1–H5 e registrar limitações`
 **Matriz oficial:** `2942e51456add29e4c999307`
-**Evidência:** exploratória, produzida por agentes sintéticos
+**Evidência:** confirmatória e exploratória sintética, com validação externa parcial no MovieLens 100K
 
 ## Escopo
 
@@ -89,10 +89,16 @@ A contribuição sustentável não é “feedback sempre melhora recomendação�
 
 O artigo deve separar engenharia, achado confirmatório no simulador, achados exploratórios e hipóteses não testadas. Não deve afirmar “usuários preferem”, “satisfação aumentou” ou “o método é melhor” sem evidência humana.
 
+## Validação externa e transportabilidade
+
+A avaliação pré-especificada no MovieLens 100K usou separação cronológica 70/10/20, sem compartilhar dados nem ajustar hiperparâmetros a partir do holdout sintético. Dos 943 usuários, 43 atenderam aos critérios de elegibilidade. B5−B4 foi exatamente 0,00000 em NDCG@5 (IC95% [0,00000; 0,00000]; 43 empates), enquanto B5−B0 foi −0,07848 (IC95% [−0,12893; −0,03407]; p=0,00428).
+
+O efeito externo neutro não replica nem contradiz com efeito favorável o resultado sintético. As versões externas baseadas em gênero não reproduzem P0–P5, C0–C5 ou personas. A decisão é transportabilidade parcial e inconclusiva: H1 segue não sustentada no simulador; H2, H3 e H5 não são semanticamente transportáveis; e a superioridade sintética de H4 sobre popularidade não se repetiu no recorte público.
+
 ## Trabalho futuro prioritário
 
 1. investigar regularização, taxa, esquecimento e confiança para explicar a perda B5×B4;
-2. validar em dados públicos independentes;
+2. validar o mecanismo em outro conjunto público com histórico mais denso ou protocolo semanticamente mais próximo da elicitação inicial;
 3. repetir custos em hardware reportável se comparações de desempenho forem centrais;
 4. quando viável, executar protocolo humano autorizado.
 

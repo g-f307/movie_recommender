@@ -1,0 +1,6 @@
+outs:
+- md5: d648fc6b97d90cb76bd02bf5ec7dd8af.dir
+  size: 41595
+  nfiles: 10
+  hash: md5
+  path: external-validation-movielens-100k-v1
