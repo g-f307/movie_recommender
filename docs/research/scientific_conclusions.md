@@ -9,7 +9,7 @@
 
 Este documento decide H1–H5 e responde RQ1–RQ5 com a execução oficial v1.1. A unidade inferencial é o agente sintético independente, não cada célula. Os resultados descrevem o sistema sob o gerador versionado; não demonstram satisfação, preferência ou benefício humano.
 
-A única análise confirmatória é B5 contra B4 em NDCG@5. Cold start, convergência e subgrupos são exploratórios. Ablação e robustez permanecem indisponíveis. Uma média favorável isolada não sustenta hipótese.
+A única análise confirmatória é B5 contra B4 em NDCG@5. Cold start, convergência, ablação e robustez são exploratórios. Ablação e robustez foram executadas somente em validação e não alteram retrospectivamente o teste confirmatório. Uma média favorável isolada não sustenta hipótese.
 
 ## Matriz RQ → hipótese → evidência → decisão
 
@@ -20,7 +20,7 @@ A única análise confirmatória é B5 contra B4 em NDCG@5. Cold start, converg�
 | RQ4 | H3 — mitigação do cold start | B5: P0=0,32515 e P5=0,62711; B4: P0=0,29258 e P5=0,67379. Sem contraste inferencial P5 × P0 | **Inconclusiva:** sinal descritivo favorável sem evidência inferencial exigida. |
 | RQ4 | H4 — personalização versus popularidade | B5=0,53987 e B0=0,34708; n=35. Sem teste pareado B5 × B0 ou análise conjunta de descoberta/custo | **Inconclusiva:** evidência mínima não produzida. |
 | RQ3 | H5 — relevância sem perda de diversidade | O ganho de relevância falhou em H1; margem de não inferioridade não congelada; novidade e viés de popularidade indisponíveis | **Não sustentada:** falhou condição necessária e não inferioridade não foi testada. |
-| RQ5 | contribuição por ablação | Nenhuma execução válida A0–A6; o holdout não foi reinterpretado como ablação | **Inconclusiva:** componentes individuais não podem ser responsabilizados. |
+| RQ5 | contribuição por ablação | Em validação, remover gênero reduziu NDCG@5 em 0,1656 e remover década/popularidade reduziu 0,0489; remover histórico elevou 0,0380. Todos com IC95% sem zero e Holm aplicado | **Parcialmente sustentada:** gênero e década/popularidade ajudam, enquanto o histórico incremental completo prejudica neste simulador. |
 
 Em H1 não se aplica correção por multiplicidade: é a comparação primária única. Nos subgrupos, Holm foi aplicado por dimensão e K. Em H2, o teste global não rejeitou a hipótese nula e não houve pós-testes. Em H3/H4, IC, p corrigido e efeito são `N/D`: os contrastes exigidos não existem e não são inferidos de médias.
 
@@ -44,13 +44,13 @@ O ranking descritivo foi B1/B4 (0,55494), B5 (0,53987), B3 (0,52297), B2 (0,4597
 
 ### RQ5 — contribuição dos componentes
 
-Não há resposta empírica. A0–A6 foram especificadas, mas não executadas em estudo separado. Essa ausência evita selecionar explicações pelo holdout.
+O estudo separado A0–A6 atribuiu parte do resultado: gênero e década/popularidade contribuem positivamente, enquanto o histórico incremental completo degrada o ranking. Feedback negativo, diretor e texto permaneceram inconclusivos. A execução usou somente validação, preservando o holdout.
 
 ## Heterogeneidade e explicações plausíveis
 
 Os subgrupos são diagnósticos exploratórios. Após Holm, permaneceram sinais desfavoráveis em C3 e P3–P5 em K=5, além de P3 em K=10. Em P5/K=5, B5−B4 foi −0,05603, IC95% [−0,08714; −0,02671], p bruto=0,00183, p de Holm=0,00930 e rank-biserial=−0,64113. Só a seed 42 favoreceu B5; as outras quatro foram negativas. Personas têm n=5 e seeds n=7, sem precisão para conclusões isoladas.
 
-Uma explicação compatível é reação excessiva a feedback escasso ou ruidoso, deslocando um perfil inicial informativo. O prejuízo em P3–P5 reforça essa possibilidade. É mecanismo a testar, não causa demonstrada. Também são plausíveis desalinhamento com a função latente, exposição limitada e sensibilidade à seed.
+A ablação e a robustez tornam mais específica a explicação: remover todo o histórico melhora o ranking e feedback contraditório causa perda média de 0,2077 em NDCG@5 frente a B4. Feedback aleatório também apresenta sinal adverso, embora não sobreviva à correção de Holm entre cenários. Isso sustenta sensibilidade da atualização a sinais inconsistentes dentro do simulador, não uma causa generalizável para pessoas.
 
 ## Ameaças à validade
 
@@ -58,7 +58,7 @@ Uma explicação compatível é reação excessiva a feedback escasso ou ruidoso
 
 - B4/B5 foram pareados e as 15.120 células validadas por hash.
 - Método, feedback e relevância compartilham o domínio sintético; essa circularidade pode favorecer ou punir regras sem representar causalidade.
-- Sem ablação e robustez, componentes e mecanismos não podem ser isolados.
+- Ablação e robustez isolam mecanismos em validação sintética, mas não eliminam confundimento do gerador nem validam causalidade humana.
 
 ### Construto
 
@@ -87,12 +87,10 @@ O artigo deve separar engenharia, achado confirmatório no simulador, achados ex
 
 ## Trabalho futuro prioritário
 
-1. executar A0–A6 separadamente do holdout;
-2. executar robustez, sobretudo feedback contraditório, aleatório e extremo;
-3. congelar margem e medir diversidade, novidade, cobertura e popularidade;
-4. produzir contrastes P5 × P0 e B5 × B0 e custos de RQ4;
-5. investigar regularização, taxa, esquecimento e confiança em treino/validação;
-6. validar em dados públicos e, quando viável, protocolo humano autorizado.
+1. congelar margem e medir diversidade, novidade, cobertura e popularidade;
+2. produzir contrastes P5 × P0 e B5 × B0 e custos de RQ4;
+3. investigar regularização, taxa, esquecimento e confiança em treino/validação;
+4. validar em dados públicos e, quando viável, protocolo humano autorizado.
 
 ## Rastreabilidade e reprodução
 
