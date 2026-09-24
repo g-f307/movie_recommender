@@ -22,6 +22,11 @@
 - [`research/b6_decision_v1.md`](research/b6_decision_v1.md): decisão pré-holdout de adiar B6 na versão 1.
 - [`research/statistical_analysis.md`](research/statistical_analysis.md): análise pareada principal B5 × B4, integridade e reprodução.
 - [`research/subgroup_analysis.md`](research/subgroup_analysis.md): análise exploratória por condição, perfil, persona, seed e K.
+- [`research/experiment_synthesis.md`](research/experiment_synthesis.md): síntese exploratória de cold start, convergência e estudos indisponíveis.
+- [`research/scientific_reporting.md`](research/scientific_reporting.md): geração reproduzível de tabelas, figuras e metadados científicos.
+- [`research/artifact_reproduction.md`](research/artifact_reproduction.md): recuperação e validação independente dos artefatos via DVC.
+- [`research/reproduction_log_v1.md`](research/reproduction_log_v1.md): registro da reprodução independente da execução oficial.
+- [`research/scientific_conclusions.md`](research/scientific_conclusions.md): decisões H1–H5, respostas RQ1–RQ5 e ameaças à validade.
 - [`research/personalization_contract.md`](research/personalization_contract.md): estado imutável, eventos de feedback e cadeia versionada de snapshots.
 - [`research/profile_update.md`](research/profile_update.md): política, equação e controles da atualização incremental do perfil.
 - [`research/synthetic_agents.md`](research/synthetic_agents.md): personas, preferências latentes e política reproduzível de feedback sintético.
