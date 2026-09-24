@@ -27,6 +27,7 @@ class MetricRecord:
     agent_id: str
     status: str
     metric: float | None
+    candidate_set_id: str = ""
 
 
 def _sha256(path: Path) -> str:
@@ -102,5 +103,6 @@ def load_official_records(
             agent_id=str(individual["agent_id"]),
             status=str(individual.get("evaluation_status")),
             metric=float(raw_metric) if isinstance(raw_metric, (int, float)) else None,
+            candidate_set_id=str(individual.get("candidate_set_id") or ""),
         ))
     return manifest, records

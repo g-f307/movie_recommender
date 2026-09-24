@@ -1,4 +1,4 @@
-.PHONY: setup setup-full validate test compile smoke readiness prepare-b2 prepare-b3 ablation robustness
+.PHONY: setup setup-full validate test compile smoke readiness prepare-b2 prepare-b3 ablation robustness contrasts
 
 PYTHON ?= python3
 
@@ -39,3 +39,6 @@ ablation:
 
 robustness:
 	$(PYTHON) -m cinebot_ml.analysis.robustness_execution
+
+contrasts:
+	$(PYTHON) -m cinebot_ml.analysis.confirmatory_contrasts
