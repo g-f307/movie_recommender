@@ -174,12 +174,11 @@ python -m cinebot_ml.experiments cold-start \
 As saídas incluem dataset bruto, disponibilidade de candidatos, manifesto e
 resumo descritivo. B2 e B3 exigem seus artefatos explícitos.
 
-No estado atual não há remoto DVC compartilhado configurado. Assim, `dvc pull`
-sozinho não reconstrói os ativos em um clone novo. O catálogo pode ser
-regenerado pelo scraper com `TMDB_API_KEY`; dataset e B3 podem ser regenerados
-pelos estágios do `dvc.yaml`. O artefato B2 deve ser ajustado exclusivamente na
-partição de treino. Antes da execução oficial, esses ativos devem ser publicados
-em armazenamento autorizado ou regenerados e congelados conforme o protocolo.
+O remoto DVC privado `artifacts` está configurado sem credenciais no repositório.
+Um clone autorizado pode recuperar B2/B3 e a execução sintética oficial após
+receber credenciais de leitura. Consulte
+[`docs/research/artifact_reproduction.md`](docs/research/artifact_reproduction.md)
+para o inventário e a validação independente.
 
 Com um manifesto de split aprovado, gere B2 somente com a partição de treino:
 
