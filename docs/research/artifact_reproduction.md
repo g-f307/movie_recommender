@@ -13,13 +13,15 @@ Não são publicados `.env`, credenciais, feedback real, catálogo sem autoriza�
 
 ## Configuração do remoto
 
-O endereço do armazenamento é infraestrutura e não deve conter credenciais no Git. Após receber do responsável o endereço autorizado, configure-o localmente:
+O remoto privado `artifacts` está versionado sem credenciais em `.dvc/config` e aponta para o bucket Cloudflare R2 `movie-recommender-dvc`. Em um clone novo, forneça as credenciais apenas pelo ambiente:
 
 ```bash
-.venv/bin/dvc remote add --local -d artifacts <URL_AUTORIZADA>
+export AWS_ACCESS_KEY_ID=<ACCESS_KEY_LOCAL>
+export AWS_SECRET_ACCESS_KEY=<SECRET_KEY_LOCAL>
+export AWS_DEFAULT_REGION=auto
 ```
 
-Credenciais específicas do backend devem ser definidas com `dvc remote modify --local`, variáveis de ambiente ou o mecanismo de identidade do provedor. A opção `--local` grava em `.dvc/config.local`, que é ignorado pelo Git. Tokens, chaves e caminhos pessoais não pertencem a `.dvc/config`.
+As variáveis podem ser carregadas de um `.env` local ignorado pelo Git. Tokens e chaves nunca pertencem a `.dvc/config`, manifests, comandos versionados ou logs.
 
 Para publicar os objetos aprovados:
 
@@ -55,4 +57,4 @@ O verificador confere tamanho e SHA-256 dos arquivos, MD5 dos ponteiros DVC, con
 
 ## Limitação de distribuição
 
-O fluxo foi validado de ponta a ponta com um remoto DVC local descartável e um clone Git independente. Isso demonstra que os ponteiros, objetos, recuperação e regeneração funcionam, mas não equivale à disponibilidade pública duradoura. A alegação de recuperação por terceiros só passa a valer quando o proprietário configurar um backend compartilhado autorizado e executar o `dvc push` acima.
+O fluxo foi validado primeiro com um remoto local descartável e depois com o bucket privado Cloudflare R2. Um clone novo obtido do GitHub recuperou 17.648 objetos exclusivamente do R2, validou os cinco ativos e as 15.120 células e regenerou tabelas e figuras com hashes idênticos. Terceiros ainda precisam receber credenciais de leitura autorizadas; o bucket não é público.

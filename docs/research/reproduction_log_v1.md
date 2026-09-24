@@ -3,7 +3,7 @@
 - Data: 2026-09-23
 - Commit testado: `2c24fbc`
 - DVC: 3.67.1
-- Armazenamento: remoto local descartável, sem credenciais
+- Armazenamento: Cloudflare R2 privado, com credenciais somente no ambiente local
 - Clone: novo clone Git criado com `--no-local`
 
 ## Resultado
@@ -33,7 +33,7 @@ a03b71955ee1a63666212b5fed8bd12c260d7b4e8aed1f5049f8ee2b265d48b1  tables/subgrou
 
 ## Limitações observadas
 
-- Não havia backend DVC compartilhado autorizado; a validação usou armazenamento temporário.
+- O bucket compartilhado é privado; reprodução por terceiros exige credencial de leitura autorizada.
 - O ponteiro legado do dataset de preferências está desatualizado e foi excluído deste fluxo.
 - Feedback real, catálogo e credenciais não foram copiados para o remoto.
 - A validação comprova reprodutibilidade computacional dos resultados sintéticos, não replicação com participantes humanos.
