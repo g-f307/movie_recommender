@@ -18,12 +18,12 @@ Na convergência, o teste global de Friedman compara C0–C5 dentro dos mesmos a
 
 ## Ablação e robustez
 
-As configurações congeladas A0–A6 e dos 12 cenários são auditadas e identificadas por hash. Como esses estudos não fazem parte das células oficiais, a síntese registra sua indisponibilidade, em vez de reinterpretar o holdout como se ele fosse uma execução de ablação ou robustez. Saídas válidas futuras devem ser gravadas separadamente em:
+As configurações congeladas A0–A6 e dos 12 cenários são auditadas e identificadas por hash. Os estudos foram executados separadamente na partição de validação e são descobertos pela síntese nos diretórios:
 
-- `results/derived/specialized_v1/ablation/<study_id>/`;
-- `results/derived/specialized_v1/robustness/<study_id>/`.
+- `results/derived/specialized_v1/ablation/538fae9a59ad7976c95c6ef8/`;
+- `results/derived/specialized_v1/robustness/56e31e9e624c565ed60a3a64/`.
 
-Somente manifestações versionadas nesses diretórios passam a ser referenciadas pela síntese. Falhas e métricas indisponíveis devem permanecer explícitas. Em particular, novidade e viés de popularidade não foram calculados na execução oficial e não são imputados.
+A ablação contém 1.225 células válidas. A robustez contém 417 pares B4×B5 e três falhas explícitas por NDCG@5 indefinido no cenário com poucos candidatos. Esses estudos permanecem exploratórios, não reinterpretam o holdout e não são usados para ajustar B5. Somente manifestos versionados passam a ser referenciados pela síntese; ausências nunca são imputadas.
 
 ## Limites de interpretação
 
