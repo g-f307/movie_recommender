@@ -9,7 +9,7 @@
 
 Este documento decide H1–H5 e responde RQ1–RQ5 com a execução oficial v1.1. A unidade inferencial é o agente sintético independente, não cada célula. Os resultados descrevem o sistema sob o gerador versionado; não demonstram satisfação, preferência ou benefício humano.
 
-A única análise confirmatória é B5 contra B4 em NDCG@5. Cold start, convergência, ablação e robustez são exploratórios. Ablação e robustez foram executadas somente em validação e não alteram retrospectivamente o teste confirmatório. Uma média favorável isolada não sustenta hipótese.
+As análises confirmatórias incluem B5 contra B4 em NDCG@5 e os contrastes pré-especificados P5×P0 e B5×B0. Convergência, perfis intermediários, ablação e robustez são exploratórios. Ablação e robustez foram executadas somente em validação e não alteram retrospectivamente os testes confirmatórios. Uma média favorável isolada não sustenta hipótese.
 
 ## Matriz RQ → hipótese → evidência → decisão
 
@@ -17,12 +17,12 @@ A única análise confirmatória é B5 contra B4 em NDCG@5. Cold start, converg�
 |---|---|---|---|
 | RQ1 | H1 — benefício do feedback | B5 − B4=−0,01809; IC95% [−0,03427; −0,00222]; Wilcoxon p=0,03562; rank-biserial=−0,40635; 9 ganhos, 26 perdas; n=35 | **Não sustentada:** o sinal é contrário. |
 | RQ2 | H2 — aprendizado progressivo | Friedman C0–C5: χ²=9,3473; p=0,09599; n=35. B5 contra C0: C1 −0,01314; C2 −0,01793; C3 −0,01611; C4 −0,01575; C5 +0,01070 | **Não sustentada:** sem tendência positiva global ou convergência demonstrada. |
-| RQ4 | H3 — mitigação do cold start | B5: P0=0,32515 e P5=0,62711; B4: P0=0,29258 e P5=0,67379. Sem contraste inferencial P5 × P0 | **Inconclusiva:** sinal descritivo favorável sem evidência inferencial exigida. |
-| RQ4 | H4 — personalização versus popularidade | B5=0,53987 e B0=0,34708; n=35. Sem teste pareado B5 × B0 ou análise conjunta de descoberta/custo | **Inconclusiva:** evidência mínima não produzida. |
+| RQ4 | H3 — mitigação do cold start | P5−P0 sob B5=+0,28188; IC95% [0,22880; 0,33677]; Holm p=2,33×10⁻¹⁰; rank-biserial=0,99683; n=35 | **Sustentada no simulador:** P5 supera P0, sem monotonicidade garantida entre perfis intermediários. |
+| RQ4 | H4 — personalização versus popularidade | B5−B0 pós-feedback=+0,18983; IC95% [0,13468; 0,24853]; Holm p=8,63×10⁻⁸; rank-biserial=0,91111; n=35 | **Parcialmente sustentada:** relevância favorece B5, mas descoberta e cobertura ainda são necessárias. |
 | RQ3 | H5 — relevância sem perda de diversidade | O ganho de relevância falhou em H1; margem de não inferioridade não congelada; novidade e viés de popularidade indisponíveis | **Não sustentada:** falhou condição necessária e não inferioridade não foi testada. |
 | RQ5 | contribuição por ablação | Em validação, remover gênero reduziu NDCG@5 em 0,1656 e remover década/popularidade reduziu 0,0489; remover histórico elevou 0,0380. Todos com IC95% sem zero e Holm aplicado | **Parcialmente sustentada:** gênero e década/popularidade ajudam, enquanto o histórico incremental completo prejudica neste simulador. |
 
-Em H1 não se aplica correção por multiplicidade: é a comparação primária única. Nos subgrupos, Holm foi aplicado por dimensão e K. Em H2, o teste global não rejeitou a hipótese nula e não houve pós-testes. Em H3/H4, IC, p corrigido e efeito são `N/D`: os contrastes exigidos não existem e não são inferidos de médias.
+Em H1 não se aplica correção por multiplicidade por ser a comparação primária original. H3 e o componente de relevância de H4 formam uma família corrigida por Holm. Nos subgrupos, Holm foi aplicado por dimensão e K. Em H2, o teste global não rejeitou a hipótese nula e não houve pós-testes.
 
 ## Respostas às perguntas
 
@@ -40,7 +40,9 @@ O trade-off não foi decidido. A relevância caiu, não há margem congelada par
 
 ### RQ4 — qualidade, complexidade e custo
 
-O ranking descritivo foi B1/B4 (0,55494), B5 (0,53987), B3 (0,52297), B2 (0,45977) e B0 (0,34708). Sugere valor do perfil e vantagem de B5 sobre B0 no simulador, mas não prova H3/H4: faltam contrastes e métricas comparáveis de latência, memória, artefato e treino. Não há “melhor relação qualidade–custo”.
+P5 superou P0 sob B5 em 0,28188 NDCG@5, sustentando mitigação de cold start no simulador, embora somente 6 de 35 agentes tenham exibido progressão integralmente não decrescente entre P0 e P5. B5 também superou B0 após feedback em 0,18983, com resultado preservado em K=10.
+
+Esses contrastes sustentam H3 e o componente de relevância de H4, mas não provam uma “melhor relação qualidade–custo”. H4 permanece condicionada às métricas de descoberta e cobertura, e a vantagem contra popularidade não elimina a perda de B5 contra B4.
 
 ### RQ5 — contribuição dos componentes
 
@@ -88,13 +90,13 @@ O artigo deve separar engenharia, achado confirmatório no simulador, achados ex
 ## Trabalho futuro prioritário
 
 1. congelar margem e medir diversidade, novidade, cobertura e popularidade;
-2. produzir contrastes P5 × P0 e B5 × B0 e custos de RQ4;
-3. investigar regularização, taxa, esquecimento e confiança em treino/validação;
+2. medir custos comparáveis de RQ4 e completar a decisão de H4;
+3. investigar regularização, taxa, esquecimento e confiança para explicar a perda B5×B4;
 4. validar em dados públicos e, quando viável, protocolo humano autorizado.
 
 ## Rastreabilidade e reprodução
 
-Fontes: [`research_questions.md`](research_questions.md), [`experimental_protocol.md`](experimental_protocol.md), [`statistical_analysis.md`](statistical_analysis.md), [`subgroup_analysis.md`](subgroup_analysis.md), [`experiment_synthesis.md`](experiment_synthesis.md), [`scientific_reporting.md`](scientific_reporting.md) e [`artifact_reproduction.md`](artifact_reproduction.md).
+Fontes: [`research_questions.md`](research_questions.md), [`experimental_protocol.md`](experimental_protocol.md), [`statistical_analysis.md`](statistical_analysis.md), [`confirmatory_contrasts.md`](confirmatory_contrasts.md), [`subgroup_analysis.md`](subgroup_analysis.md), [`experiment_synthesis.md`](experiment_synthesis.md), [`scientific_reporting.md`](scientific_reporting.md) e [`artifact_reproduction.md`](artifact_reproduction.md).
 
 ```bash
 python -m cinebot_ml.analysis.reporting --output-root results/scientific_report_v1
