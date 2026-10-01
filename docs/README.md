@@ -39,6 +39,7 @@
 ## Artigo
 
 - [`paper/RASCUNHO_ARTIGO_MOVIE_RECOMMENDER.md`](paper/RASCUNHO_ARTIGO_MOVIE_RECOMMENDER.md): ponto de partida para a redação do artigo.
+- [`paper/manuscript_traceability.md`](paper/manuscript_traceability.md): decisões editoriais e vínculo entre alegações, figuras, tabelas e evidências.
 
 O `README.md` principal, o `REPOSITORIO.md` e o `LICENSE` permanecem na raiz por
 descreverem o repositório e suas condições de uso.
