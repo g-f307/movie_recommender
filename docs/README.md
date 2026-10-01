@@ -24,6 +24,7 @@
 - [`research/subgroup_analysis.md`](research/subgroup_analysis.md): análise exploratória por condição, perfil, persona, seed e K.
 - [`research/experiment_synthesis.md`](research/experiment_synthesis.md): síntese exploratória de cold start, convergência e estudos indisponíveis.
 - [`research/scientific_reporting.md`](research/scientific_reporting.md): geração reproduzível de tabelas, figuras e metadados científicos.
+- [`research/paper_artifacts.md`](research/paper_artifacts.md): figuras e tabelas finais do artigo, fontes, hashes e comando de reprodução.
 - [`research/artifact_reproduction.md`](research/artifact_reproduction.md): recuperação e validação independente dos artefatos via DVC.
 - [`research/reproduction_log_v1.md`](research/reproduction_log_v1.md): registro da reprodução independente da execução oficial.
 - [`research/scientific_conclusions.md`](research/scientific_conclusions.md): decisões H1–H5, respostas RQ1–RQ5 e ameaças à validade.
