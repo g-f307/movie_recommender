@@ -24,6 +24,44 @@ ORANGE = "#D55E00"
 GREEN = "#009E73"
 GRAY = "#666666"
 
+EDITORIAL_LABELS = {
+    "Agente": "Agent",
+    "Média e IC95%": "Mean and 95% CI",
+    "Sem histórico": "Without history",
+    "Sem gênero": "Without genre",
+    "Contraditório": "Contradictory",
+    "Sintético": "Synthetic",
+    "Popularidade": "Popularity",
+    "Aleatório": "Random",
+    "Classificador supervisionado": "Supervised classifier",
+    "TF-IDF textual": "Textual TF-IDF",
+    "Perfil estático": "Static profile",
+    "Perfil incremental": "Incremental profile",
+    "não": "no",
+    "sim": "yes",
+    "não sustentada": "not supported",
+    "sustentada no simulador": "supported in the simulator",
+    "B5-B4 sintético": "B5-B4 synthetic",
+    "method": "Method",
+    "description": "Description",
+    "feedback": "Feedback",
+    "contrast": "Contrast",
+    "estimate": "Estimate",
+    "ci95": "95% CI",
+    "p_value": "p-value",
+    "n": "N",
+    "rq": "RQ",
+    "hypothesis": "Hypothesis",
+    "decision": "Decision",
+}
+
+
+def _editorial_label(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    translated = EDITORIAL_LABELS.get(value, value)
+    return translated.replace("_", " ").capitalize() if "_" in translated else translated
+
 
 def _validate(evidence: dict[str, Any]) -> None:
     if not str(evidence.get("matrix_id", "")).strip():
@@ -51,13 +89,13 @@ def _plot(path: Path, draw: Callable[[Any, Any], None]) -> None:
 
 def _primary(evidence: dict[str, Any], axis: Any) -> None:
     values = evidence["primary"]["agent_differences"]
-    axis.scatter(values, range(1, len(values) + 1), color=BLUE, marker="o", label="Agente")
+    axis.scatter(values, range(1, len(values) + 1), color=BLUE, marker="o", label="Agent")
     mean = evidence["primary"]["mean_difference"]
     low, high = evidence["primary"]["confidence_interval_95"]
     axis.errorbar(mean, 0.35, xerr=[[mean - low], [high - mean]], color=ORANGE,
-                  marker="D", capsize=4, label="Média e IC95%")
+                  marker="D", capsize=4, label="Mean and 95% CI")
     axis.axvline(0, color=GRAY, linewidth=1, linestyle="--")
-    axis.set(xlabel="Diferença pareada B5 − B4 em NDCG@5", ylabel="Agente")
+    axis.set(xlabel="Paired B5 − B4 difference in NDCG@5", ylabel="Agent")
     axis.legend(frameon=False)
 
 
@@ -66,7 +104,7 @@ def _trajectory(evidence: dict[str, Any], axis: Any) -> None:
     labels = [row["condition"] for row in rows]
     axis.plot(labels, [row["b4_mean"] for row in rows], color=BLUE, marker="o", label="B4")
     axis.plot(labels, [row["b5_mean"] for row in rows], color=ORANGE, marker="s", label="B5")
-    axis.set(xlabel="Condição de feedback", ylabel="NDCG@5 médio")
+    axis.set(xlabel="Feedback condition", ylabel="Mean NDCG@5")
     axis.legend(frameon=False)
 
 
@@ -78,7 +116,9 @@ def _forest(rows: list[dict[str, Any]], axis: Any, xlabel: str) -> None:
         axis.errorbar(value, position, xerr=[[value - low], [high - value]], color=BLUE,
                       marker="o", capsize=4)
     axis.axvline(0, color=GRAY, linewidth=1, linestyle="--")
-    axis.set_yticks(positions, [row.get("label", row.get("source")) for row in rows])
+    axis.set_yticks(positions, [
+        _editorial_label(row.get("label", row.get("source"))) for row in rows
+    ])
     axis.set_xlabel(xlabel)
 
 
@@ -103,8 +143,10 @@ def _write_table(path: Path, rows: list[dict[str, Any]]) -> None:
         raise PaperArtifactError(f"table {path.stem} has no rows")
     columns = list(rows[0])
     lines = [r"\begin{tabular}{" + "l" * len(columns) + "}", r"\toprule",
-             " & ".join(_escape(column) for column in columns) + r" \\", r"\midrule"]
-    lines.extend(" & ".join(_format_value(row.get(column, "")) for column in columns) + r" \\"
+             " & ".join(_escape(_editorial_label(column)) for column in columns) + r" \\", r"\midrule"]
+    lines.extend(" & ".join(
+        _format_value(_editorial_label(row.get(column, ""))) for column in columns
+    ) + r" \\"
                  for row in rows)
     lines.extend([r"\bottomrule", r"\end{tabular}", ""])
     path.write_text("\n".join(lines), encoding="utf-8")
@@ -134,10 +176,10 @@ def render_paper_artifacts(evidence: dict[str, Any], output_root: Path) -> list[
         _plot(figures / "feedback_trajectory", lambda _, axis: _trajectory(evidence, axis))
         mechanisms = [*evidence["ablation"], *evidence["robustness"]]
         _plot(figures / "mechanisms_forest",
-              lambda _, axis: _forest(mechanisms, axis, "Efeito em NDCG@5"))
+              lambda _, axis: _forest(mechanisms, axis, "Effect on NDCG@5"))
         _plot(figures / "transportability",
               lambda _, axis: _forest(evidence["transportability"], axis,
-                                      "Diferença B5 − B4 em NDCG@5"))
+                                      "B5 − B4 difference in NDCG@5"))
 
         table_names = {
             "design": "design.tex",
