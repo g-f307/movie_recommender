@@ -29,6 +29,8 @@ faz alegações sobre participantes humanos.
 
 - Fonte principal: `movie_recommender_draft.tex` com
   `\documentclass[sigconf,anonymous,review,natbib=false]{acmart}`.
+- Template congelado no pacote: `acmart` 2.19 e estilos bibliográficos ACM
+  correspondentes, evitando dependência da versão instalada no ambiente.
 - PDF: cinco páginas, tamanho US Letter (612 × 792 pt), PDF 1.7.
 - Metadado `Author`: vazio; título científico preservado.
 - Fontes: todas incorporadas no PDF inspecionado.
@@ -79,6 +81,7 @@ submission_sac2027/
 ├── source/
 │   ├── movie_recommender_draft.tex
 │   ├── movie_recommender_references.bib
+│   ├── acmart.cls e estilos bibliográficos ACM
 │   └── paper_artifacts/
 │       ├── figures/*.pdf
 │       └── tables/*.tex

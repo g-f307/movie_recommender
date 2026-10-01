@@ -67,6 +67,7 @@ class SubmissionPackageTests(unittest.TestCase):
                 project_root=root,
                 commit="a" * 40,
                 checked_at="2026-10-01",
+                template_version="acmart 2.19",
             )
 
             self.assertEqual(
@@ -78,6 +79,7 @@ class SubmissionPackageTests(unittest.TestCase):
                 manifest["files"]["submission/movie_recommender_anonymous.pdf"]["sha256"],
                 expected,
             )
+            self.assertEqual(manifest["template_version"], "acmart 2.19")
             serialized = (output / "submission_manifest.json").read_text(encoding="utf-8")
             self.assertNotIn(str(root), serialized)
             self.assertEqual(json.loads(serialized), manifest)
@@ -99,6 +101,7 @@ class SubmissionPackageTests(unittest.TestCase):
                     project_root=root,
                     commit="b" * 40,
                     checked_at="2026-10-01",
+                    template_version="acmart 2.19",
                 )
 
             self.assertEqual((output / "keep.txt").read_text(encoding="utf-8"), "keep")
@@ -120,6 +123,7 @@ class SubmissionPackageTests(unittest.TestCase):
                     project_root=root,
                     commit="c" * 40,
                     checked_at="2026-10-01",
+                    template_version="acmart 2.19",
                 )
 
 

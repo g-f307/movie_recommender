@@ -116,6 +116,7 @@ def build_submission_package(
     project_root: Path,
     commit: str,
     checked_at: str,
+    template_version: str,
 ) -> dict[str, object]:
     """Build a minimal package atomically and record a relative hash inventory."""
     output_dir = Path(output_dir)
@@ -163,6 +164,7 @@ def build_submission_package(
             "anonymous": True,
             "checked_at": checked_at,
             "git_commit": commit,
+            "template_version": template_version,
             "files": files,
         }
         (stage / "submission_manifest.json").write_text(
@@ -205,9 +207,18 @@ def main(argv: list[str] | None = None) -> int:
     source_files = [
         template / "movie_recommender_draft.tex",
         template / "movie_recommender_references.bib",
+        template / "acmart.cls",
+        template / "acmdatamodel.dbx",
+        template / "acmnumeric.bbx",
+        template / "acmnumeric.cbx",
         *sorted((template / "paper_artifacts/figures").glob("*.pdf")),
         *sorted((template / "paper_artifacts/tables").glob("*.tex")),
     ]
+    class_match = re.search(
+        r"\\ProvidesClass\{acmart\}\s*\[([^\]]+)\]",
+        (template / "acmart.cls").read_text(encoding="utf-8", errors="replace"),
+    )
+    template_version = class_match.group(1).strip() if class_match else "acmart version not detected"
     manifest = build_submission_package(
         args.output,
         pdf_path=args.pdf,
@@ -215,6 +226,7 @@ def main(argv: list[str] | None = None) -> int:
         project_root=PROJECT_ROOT,
         commit=_git_commit(PROJECT_ROOT),
         checked_at=args.checked_at,
+        template_version=template_version,
     )
     print(json.dumps({"output": str(args.output), "manifest": manifest}, ensure_ascii=False))
     return 0
