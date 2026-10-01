@@ -15,6 +15,8 @@ Estado: **pronto para revisão final do autor; não submetido**
 - [x] Caminhos locais, usernames, credenciais e endpoints privados ausentes.
 - [x] Fontes incorporadas; imagens vetoriais e tabelas legíveis.
 - [x] Citações, referências e legendas resolvidas.
+- [x] Oito referências conferidas por DOI e metadados bibliográficos externos.
+- [x] Rótulos, eixos, legendas e tabelas editoriais integralmente em inglês.
 
 ## Integridade e reprodução
 

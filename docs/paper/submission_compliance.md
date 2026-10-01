@@ -63,6 +63,30 @@ fontes estruturadas por [`manuscript_traceability.md`](manuscript_traceability.m
 As tabelas e figuras são cópias dos artefatos rastreados produzidos na issue
 #79. O empacotador calcula SHA-256 de cada arquivo e registra o commit usado.
 
+## Auditoria das referências
+
+Auditoria externa realizada em **1º de outubro de 2026**. As oito entradas da
+bibliografia possuem DOI único, foram resolvidas pelo serviço DOI e tiveram
+título, autoria, veículo, páginas e editora comparados com os metadados do
+Crossref. “Acessível” significa que o identificador leva à página canônica; o
+texto integral pode depender de assinatura ou acesso institucional.
+
+| Referência | DOI | Destino canônico | Resultado |
+|---|---|---|---|
+| Ricci, Rokach e Shapira, *Recommender Systems Handbook* | [10.1007/978-1-4899-7637-6](https://doi.org/10.1007/978-1-4899-7637-6) | Springer | válida |
+| Schein et al., *Methods and Metrics for Cold-Start Recommendations* | [10.1145/564376.564421](https://doi.org/10.1145/564376.564421) | ACM DL | válida |
+| Jannach et al., *A Survey on Conversational Recommender Systems* | [10.1145/3453154](https://doi.org/10.1145/3453154) | ACM DL | válida |
+| Lops, de Gemmis e Semeraro, *Content-based Recommender Systems* | [10.1007/978-0-387-85820-3_3](https://doi.org/10.1007/978-0-387-85820-3_3) | Springer | válida |
+| Burke, *Hybrid Recommender Systems* | [10.1023/A:1021240730564](https://doi.org/10.1023/A:1021240730564) | Springer | válida |
+| Herlocker et al., *Evaluating Collaborative Filtering Recommender Systems* | [10.1145/963770.963772](https://doi.org/10.1145/963770.963772) | ACM DL | válida |
+| Castells, Hurley e Vargas, *Novelty and Diversity in Recommender Systems* | [10.1007/978-1-0716-2197-4_16](https://doi.org/10.1007/978-1-0716-2197-4_16) | Springer | válida |
+| Harper e Konstan, *The MovieLens Datasets* | [10.1145/2827872](https://doi.org/10.1145/2827872) | ACM DL | válida |
+
+O Crossref registra publicação online em 2010 para o capítulo de Lops et al. e
+em 2021 para o capítulo de Castells et al. A bibliografia mantém 2011 e 2022,
+respectivamente, por serem os anos editoriais das edições dos livros citadas.
+Essa diferença foi revisada e não representa DOI ou obra incorreta.
+
 ## Reprodução e arquivos preparados
 
 O comando abaixo recompila o artigo, valida o PDF e a anonimização e cria um
