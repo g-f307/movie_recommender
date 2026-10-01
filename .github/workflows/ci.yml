@@ -27,6 +27,9 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-ci.txt
 
+      - name: Instalar dependências de sistema
+        run: sudo apt-get update && sudo apt-get install --yes poppler-utils
+
       - name: Instalar dependências experimentais
         run: make setup PYTHON=python
 
