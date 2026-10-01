@@ -6,8 +6,10 @@ from pathlib import Path
 
 from cinebot_ml.analysis.paper_artifacts import (
     PaperArtifactError,
+    build_paper_evidence,
     render_paper_artifacts,
 )
+from cinebot_ml.analysis.synthesis import DEFAULT_MANIFEST, SPECIALIZED_ROOT
 
 
 def evidence_fixture():
@@ -112,6 +114,31 @@ class PaperArtifactTests(unittest.TestCase):
             with self.subTest(expected=expected), tempfile.TemporaryDirectory() as temporary:
                 with self.assertRaisesRegex(PaperArtifactError, expected):
                     render_paper_artifacts(evidence, Path(temporary) / "paper")
+
+
+    def test_execucoes_repetidas_produzem_conteudo_equivalente(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            render_paper_artifacts(evidence_fixture(), root / "first")
+            render_paper_artifacts(evidence_fixture(), root / "second")
+            first = json.loads((root / "first/paper_artifacts.manifest.json").read_text())
+            second = json.loads((root / "second/paper_artifacts.manifest.json").read_text())
+            self.assertEqual(first["outputs"], second["outputs"])
+
+
+    def test_carrega_evidencias_congeladas_sem_divergir_das_conclusoes(self):
+        evidence = build_paper_evidence(DEFAULT_MANIFEST, SPECIALIZED_ROOT)
+
+        self.assertEqual(evidence["matrix_id"], "2942e51456add29e4c999307")
+        self.assertAlmostEqual(evidence["primary"]["mean_difference"], -0.0180862012)
+        self.assertEqual(len(evidence["primary"]["agent_differences"]), 35)
+        self.assertEqual([row["condition"] for row in evidence["convergence"]],
+                         [f"C{index}" for index in range(6)])
+        self.assertEqual(len(evidence["ablation"]), 6)
+        self.assertEqual(len(evidence["robustness"]), 12)
+        self.assertEqual({row["source"] for row in evidence["transportability"]},
+                         {"Sintético", "MovieLens 100K"})
+        self.assertGreaterEqual(len(evidence["sources"]), 6)
 
 
 if __name__ == "__main__":
