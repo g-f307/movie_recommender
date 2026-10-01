@@ -121,13 +121,19 @@ while preserving their confirmatory or exploratory status.
 
 \section{Research Questions}
 
-The primary question (RQ1) asks whether incremental positive and negative
-feedback improves NDCG@5 over a static initial profile. H1 predicts a positive
-paired difference between the incremental method B5 and static method B4. RQ2
-asks whether ranking quality increases as the available history grows from zero
-to one, three, five, ten, and all prior interactions (H2). Exploratory questions
-consider cold-start information, popularity, discovery, and component
-contribution. Only RQ1/H1 is treated as confirmatory in this version.
+RQ1 asks whether incremental positive and negative feedback improves NDCG@5
+over a static initial profile; H1 predicts a positive B5--B4 paired difference.
+RQ2 asks whether B5 improves as available history grows from zero to one, three,
+five, ten, and all prior interactions; H2 predicts progressive improvement.
+RQ3 examines whether B5 gains relevance without a practically important loss
+of diversity; H5 requires both a relevance gain and diversity non-inferiority.
+RQ4 asks whether richer cold-start information helps (H3: P5 exceeds P0 under
+B5) and whether personalization improves over popularity while exposing its
+cost (H4: B5 exceeds B0 in relevance and discovery). RQ5 asks which components
+explain B5 behavior through validation-only ablation. H1 is the original
+primary comparison; H3 and the relevance component of H4 are pre-specified
+confirmatory contrasts with Holm correction. Convergence, intermediate
+profiles, ablation, robustness, and subgroups remain exploratory.
 
 \section{Methodology}
 
@@ -150,9 +156,9 @@ demographic groups, and shared feature assumptions can introduce circularity.
 
 \subsection{Compared methods}
 
-We evaluate B0 popularity, B1 content-based similarity, B2 TF--IDF cosine
-similarity, B3 supervised relevance, B4 static profile, and B5 incremental
-personalization. B4 and B5 share the same base representation and candidates;
+We evaluate B0 popularity, B1 structured content similarity, B2 TF--IDF
+cosine similarity, B3 supervised relevance, B4 static profile, and B5
+incremental personalization. B4 and B5 share the same base representation and candidates;
 B5 alone incorporates feedback available before the current ranking. A planned
 hybrid B6 was excluded before holdout evaluation because no distinct,
 validation-selected mechanism had been frozen.
@@ -187,11 +193,23 @@ are exploratory and use Holm correction within each dimension and K.
 
 \subsection{Primary comparison}
 
-Table~\ref{tab:primary} reports the confirmatory result. B5 obtained lower mean
+Figure~\ref{fig:primary} shows every independent-agent difference and the
+paired uncertainty summary. Table~\ref{tab:primary} reports the confirmatory result. B5 obtained lower mean
 NDCG@5 than B4. The mean paired difference was $-0.0181$, or $-3.25\%$ relative
 to B4. Its confidence interval excluded zero, and the effect was negative and
 moderate by rank-biserial correlation. H1 is therefore not supported; the data
 instead provide evidence of harm within the synthetic environment.
+
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{paper_artifacts/figures/primary_paired.pdf}
+  \Description{Dot plot of 35 paired agent differences with a negative mean and a 95 percent confidence interval below zero.}
+  \caption{Paired B5--B4 differences in NDCG@5 for 35 synthetic agents. The
+diamond is the mean and the horizontal interval is the paired bootstrap 95\%
+CI. Synthetic agents are experimental units, not human participants.}
+  \label{fig:primary}
+\end{figure}
 
 \begin{table}[t]
   \caption{Primary paired analysis at the synthetic-agent level.}
@@ -219,6 +237,18 @@ $-0.0158$, and $+0.0107$ at C1--C5, respectively. The trajectory is not
 monotonic. The Friedman test did not reject equal performance across conditions
 ($\chi^2=9.3473$, $p=0.0960$), so post-hoc tests were not performed and H2 is
 not supported.
+Figure~\ref{fig:trajectory} reports this trajectory descriptively; its lines
+must not be read as a significant longitudinal trend.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{paper_artifacts/figures/feedback_trajectory.pdf}
+  \Description{Two line series for B4 and B5 across conditions C0 to C5; B5 is below B4 after feedback and rises at C5.}
+  \caption{Descriptive NDCG@5 means across C0--C5. The global Friedman test
+was not significant; no post-hoc condition claim is made.}
+  \label{fig:trajectory}
+\end{figure}
+
 
 Cold-start summaries show a substantial descriptive difference between P0 and
 P5 (B5: 0.3251 versus 0.6271; B4: 0.2926 versus 0.6738). A pre-specified paired contrast found P5--P0 under B5 equal to 0.2819
@@ -237,6 +267,39 @@ respectively, and are treated as imprecise diagnostics.
 Across methods, descriptive mean NDCG@5 was 0.5549 for B1/B4, 0.5399 for B5,
 0.5230 for B3, 0.4598 for B2, and 0.3471 for B0. B5 exceeded B0 by 0.1898 NDCG@5 in the synthetic paired contrast and increased
 novelty and coverage, at a higher median latency (80.19 versus 18.70 ms).
+
+\subsection{Discovery, non-inferiority, and cost}
+
+Against B4, B5 changed diversity by $-0.00553$. Its 95\% CI was
+$[-0.00937, -0.00172]$. The lower bound remained above the frozen absolute
+non-inferiority margin of $-0.05$ ($p=2.91\times10^{-11}$, one-sided), but H5
+is not supported because its simultaneous relevance requirement failed. B5
+increased novelty from 0.57674 to 0.61091 and catalog coverage from 0.45763 to
+0.97627, while reducing popularity bias from 0.18695 to 0.10606. Its lists
+changed substantially more across feedback conditions than B4, yet that
+movement did not yield higher relevance. All six methods remained on the
+multidimensional Pareto frontier; therefore we do not select a winner using
+retrospective weights.
+
+\subsection{Ablation and robustness}
+
+Figure~\ref{fig:mechanisms} summarizes validation-only exploratory studies.
+Removing the complete history improved NDCG@5 by 0.0380, whereas removing genre
+reduced it by 0.1656 and removing decade/popularity reduced it by 0.0489.
+Negative feedback, director, and text were inconclusive after multiplicity
+control. Contradictory feedback produced a mean B5--B4 loss of 0.2077; random
+feedback was directionally adverse but did not survive Holm correction. These
+checks identify simulator mechanisms and do not establish causes in people.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=.62\textwidth]{paper_artifacts/figures/mechanisms_forest.pdf}
+  \Description{Forest plot of six ablations and twelve robustness scenarios, including adverse effects when genre is removed and under contradictory feedback.}
+  \caption{Exploratory ablation and robustness effects with 95\% intervals.
+Ablations measure variant minus A0; robustness rows measure B5 minus B4. The
+studies use validation partitions and preserve the official holdout.}
+  \label{fig:mechanisms}
+\end{figure*}
 
 \section{Discussion}
 
@@ -269,6 +332,29 @@ use genre histories rather than declared profiles and simulated conditions, so
 the neutral result is classified as inconclusive partial transportability.
 Synthetic and public samples were never pooled.
 
+Figure~\ref{fig:transport} keeps the two estimates visually separate to avoid
+a meta-analytic interpretation across incompatible constructs.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{paper_artifacts/figures/transportability.pdf}
+  \Description{Separate interval estimates for synthetic agents and MovieLens users; the synthetic estimate is negative and the MovieLens estimate is zero.}
+  \caption{B5--B4 estimates in the synthetic study and MovieLens 100K. The
+samples, relevance definitions, and recommender adaptations differ and are not
+pooled.}
+  \label{fig:transport}
+\end{figure}
+
+\begin{table*}[t]
+  \centering
+  \caption{Pre-specified and external contrasts. Synthetic and public units
+remain separate. Values are generated from frozen structured evidence.}
+  \label{tab:contrasts}
+  \input{paper_artifacts/tables/contrasts.tex}
+\end{table*}
+Table~\ref{tab:contrasts} consolidates H1, H3, H4, and the external B5--B4
+check without replacing their distinct interpretation.
+
 \section{Threats to Validity}
 
 \textbf{Internal validity.} Pairing and hash validation reduce execution mixing
@@ -278,8 +364,9 @@ reusing the official holdout, but they do not establish human causality.
 \textbf{Construct validity.} Synthetic NDCG measures alignment with latent
 simulated preferences, not satisfaction or perceived usefulness. Method,
 feedback, and relevance share a feature domain, creating potential circularity.
-Novelty and popularity bias are unavailable, and no diversity non-inferiority
-margin was frozen.
+Novelty and popularity bias use catalog vote counts as an external static proxy.
+The diversity non-inferiority margin of $-0.05$ was frozen before execution;
+its substantive choice remains a construct limitation.
 
 \textbf{External validity.} The filtered catalog and seven personas do not
 represent the full variety of people, contexts, and preference drift. Real feedback is scarce and no prospective human experiment was performed.
@@ -288,8 +375,8 @@ eligible-user coverage. Findings cannot be generalized to Telegram users.
 
 \textbf{Conclusion validity.} The primary analysis respects the independent
 unit and reports uncertainty and effect size. Subgroups remain exploratory even
-after multiplicity correction. Missing studies are reported as unavailable,
-not as null effects.
+after multiplicity correction. Ablation and robustness are validation-only exploratory studies; neither is
+promoted to confirmatory evidence.
 
 \section{Conclusion and Next Steps}
 
