@@ -40,6 +40,8 @@
 
 - [`paper/RASCUNHO_ARTIGO_MOVIE_RECOMMENDER.md`](paper/RASCUNHO_ARTIGO_MOVIE_RECOMMENDER.md): ponto de partida para a redação do artigo.
 - [`paper/manuscript_traceability.md`](paper/manuscript_traceability.md): decisões editoriais e vínculo entre alegações, figuras, tabelas e evidências.
+- [`paper/submission_compliance.md`](paper/submission_compliance.md): regras oficiais consultadas e relatório de formato, anonimização, integridade e reprodução.
+- [`paper/submission_checklist.md`](paper/submission_checklist.md): checklist técnico concluído e verificações reservadas ao autor antes do upload.
 
 O `README.md` principal, o `REPOSITORIO.md` e o `LICENSE` permanecem na raiz por
 descreverem o repositório e suas condições de uso.
