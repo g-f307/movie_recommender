@@ -137,6 +137,7 @@ make compile    # compilação dos módulos
 make smoke      # B0–B5 em dados mínimos
 make test       # suíte completa
 make readiness  # inclui dados e artefatos locais da execução completa
+make paper-artifacts PYTHON=.venv/bin/python  # figuras e tabelas finais do artigo
 ```
 
 A CI executa esse fluxo em Python 3.11 e 3.12. O modo `readiness` falha de forma

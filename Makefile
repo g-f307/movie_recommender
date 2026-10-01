@@ -1,4 +1,4 @@
-.PHONY: setup setup-full validate test compile smoke readiness prepare-b2 prepare-b3 ablation robustness contrasts discovery-cost external-validation final-evidence
+.PHONY: setup setup-full validate test compile smoke readiness prepare-b2 prepare-b3 ablation robustness contrasts discovery-cost external-validation final-evidence paper-artifacts
 
 PYTHON ?= python3
 
@@ -51,3 +51,6 @@ external-validation:
 final-evidence:
 	$(PYTHON) -m cinebot_ml.analysis.external_validation --output-dir "$$(mktemp -d /tmp/movie-recommender-final-evidence-XXXXXX)/evidence"
 	cd reports/ACM_SAC_2027_Article_Template && latexmk -pdf -interaction=nonstopmode -halt-on-error movie_recommender_draft.tex
+
+paper-artifacts:
+	$(PYTHON) -m cinebot_ml.analysis.paper_artifacts --output-root "$${OUTPUT_ROOT:-results/paper_artifacts_v1}"
