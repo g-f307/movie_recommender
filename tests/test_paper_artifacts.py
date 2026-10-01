@@ -126,6 +126,13 @@ class PaperArtifactTests(unittest.TestCase):
             self.assertEqual(first["outputs"], second["outputs"])
 
 
+    def test_carregador_rejeita_manifesto_dvc_ausente(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            missing = Path(temporary) / "experiment.manifest.json"
+            with self.assertRaisesRegex(PaperArtifactError, "missing source"):
+                build_paper_evidence(missing, Path(temporary))
+
+    @unittest.skipUnless(DEFAULT_MANIFEST.is_file(), "requires DVC experiment artifacts")
     def test_carrega_evidencias_congeladas_sem_divergir_das_conclusoes(self):
         evidence = build_paper_evidence(DEFAULT_MANIFEST, SPECIALIZED_ROOT)
 
