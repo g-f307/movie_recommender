@@ -1,0 +1,16 @@
+schema_version: "1.0"
+execution:
+  id: execution-v2
+  version: "2.0.0"
+  protocol_version: protocol-v2.0
+  frozen: true
+  exposure_policy: closed-loop-v2
+
+paths:
+  source_catalog: data/filmes.json
+  split_manifest: results/v2/manifests/splits/movie_id_split.json
+  catalog: results/v2/derived/test_catalog.json
+  units: results/v2/units
+  raw: results/v2/raw
+  manifests: results/v2/manifests/executions
+  reports: results/v2/reports

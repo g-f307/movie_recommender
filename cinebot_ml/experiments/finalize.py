@@ -10,13 +10,79 @@ from pathlib import Path
 
 from cinebot_ml.config import PROJECT_ROOT
 from cinebot_ml.experiment_config import sha256_file
+from cinebot_ml.experiments.execution import ExecutionSpec, load_execution_spec, validate_matrix_execution
 from cinebot_ml.experiments.freeze import audit_execution, pilot_matrix, preflight
-from cinebot_ml.experiments.matrix import load_experiment_matrix
+from cinebot_ml.experiments.matrix import ExperimentMatrix, load_experiment_matrix
 from cinebot_ml.experiments.units import HOLDOUT_CONFIG, UNITS
 
 
 OFFICIAL_ROOT = PROJECT_ROOT / "results/raw/official_v1_1"
 PILOT_ROOT = PROJECT_ROOT / "results/raw/pilot"
+
+
+def finalize_versioned_execution(
+    matrix: ExperimentMatrix,
+    execution_spec: ExecutionSpec,
+    output: Path,
+    *,
+    project_root: Path = PROJECT_ROOT,
+    seal: bool = False,
+) -> dict:
+    """Sela uma execução versionada sem tocar nos artefatos oficiais v1.1.
+
+    A função é deliberadamente agnóstica ao método: as issues posteriores
+    adicionam os insumos específicos do estudo v2. Nesta camada, ela garante
+    identidade, integridade dos checkpoints, hashes dos insumos declarados e
+    ausência de sobrescrita do manifesto final.
+    """
+    validate_matrix_execution(matrix, execution_spec)
+    expected_output = execution_spec.resolve_path("raw", project_root)
+    if output.resolve() != expected_output:
+        raise ValueError("A finalização v2 só aceita o diretório raw declarado na execução.")
+    audit = audit_execution(matrix, output, execution_spec=execution_spec)
+    if not audit["complete"]:
+        raise ValueError("Execução v2 incompleta ou com artefatos de outra versão; finalização recusada.")
+
+    root = output / matrix.matrix_id
+    target = root / "execution.manifest.json"
+    if target.exists():
+        raise FileExistsError("A execução já possui manifesto; não será sobrescrito.")
+    input_hashes: dict[str, str] = {}
+    for key in ("source_catalog", "split_manifest", "catalog"):
+        path = execution_spec.resolve_path(key, project_root)
+        if not path.is_file():
+            raise FileNotFoundError(f"Insumo declarado ausente na execução v2: {key}")
+        input_hashes[key] = sha256_file(path)
+    payload = {
+        "schema_version": "1.0",
+        "status": "complete",
+        "execution": {
+            "id": execution_spec.execution_id,
+            "version": execution_spec.version,
+            "protocol_version": execution_spec.protocol_version,
+            "config_sha256": execution_spec.sha256,
+            "exposure_policy": execution_spec.exposure_policy,
+        },
+        "matrix": {
+            "matrix_id": matrix.matrix_id,
+            "total_cells": matrix.total_cells,
+            "manifest_sha256": sha256_file(root / "matrix.manifest.json"),
+        },
+        "inputs_sha256": input_hashes,
+        "cells_sha256": {
+            cell.cell_id: sha256_file(root / "cells" / f"{cell.cell_id}.json")
+            for cell in matrix.cells
+        },
+    }
+    temporary = target.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    os.replace(temporary, target)
+    if seal:
+        for path in root.rglob("*.json"):
+            path.chmod(0o444)
+        (root / "cells").chmod(0o555)
+        root.chmod(0o555)
+    return payload
 
 
 def finalize(official_root: Path = OFFICIAL_ROOT, pilot_root: Path = PILOT_ROOT,
@@ -97,7 +163,24 @@ def finalize(official_root: Path = OFFICIAL_ROOT, pilot_root: Path = PILOT_ROOT,
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--no-seal", action="store_true")
+    parser.add_argument("--execution-spec", type=Path)
+    parser.add_argument("--config", type=Path, default=HOLDOUT_CONFIG)
+    parser.add_argument("--agents", type=Path)
+    parser.add_argument("--matrix-config", type=Path)
     args = parser.parse_args()
+    if args.execution_spec:
+        execution = load_execution_spec(args.execution_spec)
+        matrix = load_experiment_matrix(
+            experiment_config_path=args.config,
+            agent_config_path=args.agents or PROJECT_ROOT / "configs/agents/personas_v1.yaml",
+            matrix_config_path=args.matrix_config or PROJECT_ROOT / "configs/experiments/matrix_v1.yaml",
+            execution_spec_path=args.execution_spec,
+        )
+        result = finalize_versioned_execution(
+            matrix, execution, execution.resolve_path("raw"), seal=not args.no_seal,
+        )
+        print(json.dumps({"matrix_id": result["matrix"]["matrix_id"], "execution_id": execution.execution_id}))
+        return 0
     result = finalize(seal=not args.no_seal)
     print(json.dumps({"matrix_id": result["matrix_id"], "total_cells": result["total_cells"],
                       "git_commit": result["git_commit"]}))
