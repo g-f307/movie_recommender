@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from cinebot_ml.config import PROJECT_ROOT
+from cinebot_ml.experiments.execution import ExecutionSpec, validate_matrix_execution
 from cinebot_ml.experiments.matrix import ExperimentMatrix, load_experiment_matrix
 from cinebot_ml.experimental_splits import reconstruct_assignments
 from cinebot_ml.ranking.supervised import (
@@ -127,8 +128,13 @@ def preflight(root: Path = PROJECT_ROOT) -> dict[str, Any]:
 
 
 def audit_execution(matrix: ExperimentMatrix, output: Path,
-                    expected_commit: str | None = None) -> dict[str, Any]:
+                    expected_commit: str | None = None,
+                    execution_spec: ExecutionSpec | None = None) -> dict[str, Any]:
     """Confere todos os checkpoints, sem confiar apenas no status agregado."""
+    if execution_spec is not None:
+        validate_matrix_execution(matrix, execution_spec)
+        if output.resolve() != execution_spec.resolve_path("raw"):
+            raise ValueError("A saída auditada diverge de paths.raw da execução.")
     directory = output / matrix.matrix_id
     manifest_path = directory / "matrix.manifest.json"
     if not manifest_path.is_file() or json.loads(manifest_path.read_text(encoding="utf-8")) != matrix.to_manifest():

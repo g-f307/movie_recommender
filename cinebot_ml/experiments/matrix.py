@@ -15,6 +15,12 @@ from jsonschema import Draft202012Validator
 
 from cinebot_ml.config import PROJECT_ROOT
 from cinebot_ml.experiment_config import DEFAULT_CONFIG_PATH, load_config, sha256_file
+from cinebot_ml.experiments.execution import (
+    ExecutionSpec,
+    ExecutionSpecError,
+    load_execution_spec,
+    validate_matrix_execution,
+)
 from cinebot_ml.simulation.agents import DEFAULT_AGENT_CONFIG_PATH, load_agent_config
 
 
@@ -40,19 +46,24 @@ class ExperimentCell:
     seed: int
     k: int
     run: int = 1
+    execution_id: str | None = None
+    execution_config_sha256: str | None = None
+
+    def _identity(self) -> dict[str, Any]:
+        return {key: value for key, value in asdict(self).items() if value is not None}
 
     @property
     def cell_id(self) -> str:
-        return _hash(asdict(self))
+        return _hash(self._identity())
 
     @property
     def comparison_id(self) -> str:
-        payload = asdict(self)
+        payload = self._identity()
         payload.pop("method")
         return _hash(payload)
 
     def to_dict(self) -> dict[str, Any]:
-        return {**asdict(self), "cell_id": self.cell_id, "comparison_id": self.comparison_id}
+        return {**self._identity(), "cell_id": self.cell_id, "comparison_id": self.comparison_id}
 
 
 @dataclass(frozen=True)
@@ -64,10 +75,12 @@ class ExperimentMatrix:
     matrix_config_sha256: str
     cells: tuple[ExperimentCell, ...]
     excluded: tuple[Mapping[str, Any], ...]
+    execution_id: str | None = None
+    execution_config_sha256: str | None = None
 
     @property
     def matrix_id(self) -> str:
-        return _hash({
+        identity = {
             "version": self.version,
             "protocol_version": self.protocol_version,
             "config_sha256": self.config_sha256,
@@ -75,14 +88,18 @@ class ExperimentMatrix:
             "matrix_config_sha256": self.matrix_config_sha256,
             "cell_ids": sorted(cell.cell_id for cell in self.cells),
             "excluded": list(self.excluded),
-        })
+        }
+        if self.execution_id is not None:
+            identity["execution_id"] = self.execution_id
+            identity["execution_config_sha256"] = self.execution_config_sha256
+        return _hash(identity)
 
     @property
     def total_cells(self) -> int:
         return len(self.cells)
 
     def to_manifest(self) -> dict[str, Any]:
-        return {
+        manifest = {
             "matrix_id": self.matrix_id,
             "version": self.version,
             "protocol_version": self.protocol_version,
@@ -93,6 +110,10 @@ class ExperimentMatrix:
             "excluded": list(self.excluded),
             "cells": [cell.to_dict() for cell in self.cells],
         }
+        if self.execution_id is not None:
+            manifest["execution_id"] = self.execution_id
+            manifest["execution_config_sha256"] = self.execution_config_sha256
+        return manifest
 
 
 @dataclass(frozen=True)
@@ -149,6 +170,7 @@ def load_experiment_matrix(
     experiment_config_path: Path = DEFAULT_CONFIG_PATH,
     agent_config_path: Path = DEFAULT_AGENT_CONFIG_PATH,
     matrix_config_path: Path = DEFAULT_MATRIX_CONFIG_PATH,
+    execution_spec_path: Path | None = None,
     methods: Sequence[str] | None = None,
     conditions: Sequence[str] | None = None,
     profiles: Sequence[str] | None = None,
@@ -159,6 +181,7 @@ def load_experiment_matrix(
     experiment = load_config(experiment_config_path)
     agents = load_agent_config(agent_config_path)
     matrix_config, matrix_digest = _load_matrix_config(matrix_config_path)
+    execution = load_execution_spec(execution_spec_path) if execution_spec_path else None
     dimensions = {
         "methods": _selected(experiment["methods"]["enabled"], methods, "Método"),
         "conditions": _selected(experiment["conditions"], conditions, "Condição"),
@@ -194,7 +217,11 @@ def load_experiment_matrix(
                     for seed in dimensions["seeds"]:
                         for k in dimensions["k_values"]:
                             for run in range(1, repetitions + 1):
-                                cell = ExperimentCell(method, condition, profile, persona, seed, k, run)
+                                cell = ExperimentCell(
+                                    method, condition, profile, persona, seed, k, run,
+                                    execution_id=execution.execution_id if execution else None,
+                                    execution_config_sha256=execution.sha256 if execution else None,
+                                )
                                 rule = next((rule for rule in matrix_config["exclusions"] if _matches(cell, rule)), None)
                                 if rule:
                                     excluded.append({"cell": cell.to_dict(), "reason": rule["reason"]})
@@ -208,6 +235,8 @@ def load_experiment_matrix(
         matrix_digest,
         tuple(sorted(cells)),
         tuple(sorted(excluded, key=lambda value: value["cell"]["cell_id"])),
+        execution_id=execution.execution_id if execution else None,
+        execution_config_sha256=execution.sha256 if execution else None,
     )
 
 
@@ -218,7 +247,17 @@ def _atomic_json(path: Path, value: Mapping[str, Any]) -> None:
     temporary.replace(path)
 
 
-def execute_matrix(matrix: ExperimentMatrix, output: Path, runner: CellRunner) -> MatrixExecutionReport:
+def execute_matrix(
+    matrix: ExperimentMatrix,
+    output: Path,
+    runner: CellRunner,
+    *,
+    execution_spec: ExecutionSpec | None = None,
+) -> MatrixExecutionReport:
+    if execution_spec is not None:
+        validate_matrix_execution(matrix, execution_spec)
+        if output.resolve() != execution_spec.resolve_path("raw"):
+            raise ExecutionSpecError("A saída da matriz v2 deve corresponder a paths.raw da execução.")
     root = output / matrix.matrix_id
     manifest_path = root / "matrix.manifest.json"
     manifest = matrix.to_manifest()
@@ -275,7 +314,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--agents", type=Path, default=DEFAULT_AGENT_CONFIG_PATH)
     parser.add_argument("--matrix-config", type=Path, default=DEFAULT_MATRIX_CONFIG_PATH)
-    parser.add_argument("--output", type=Path, default=PROJECT_ROOT / "results" / "raw" / "matrices")
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--execution-spec", type=Path)
     parser.add_argument("--runner", help="Callable modulo:funcao; obrigatório em run.")
     parser.add_argument("--method", action="append")
     parser.add_argument("--condition", action="append")
@@ -285,18 +325,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--k", type=int, action="append")
     args = parser.parse_args(argv)
     try:
+        execution = load_execution_spec(args.execution_spec) if args.execution_spec else None
         matrix = load_experiment_matrix(
             experiment_config_path=args.config, agent_config_path=args.agents,
             matrix_config_path=args.matrix_config, methods=args.method,
             conditions=args.condition, profiles=args.profile, personas=args.persona,
-            seeds=args.seed, k_values=args.k,
+            seeds=args.seed, k_values=args.k, execution_spec_path=args.execution_spec,
         )
         if args.command == "list":
             print(json.dumps(matrix.to_manifest(), ensure_ascii=False, indent=2))
             return 0
         if not args.runner:
             raise MatrixValidationError("--runner é obrigatório para executar a matriz.")
-        print(json.dumps(execute_matrix(matrix, args.output, _load_runner(args.runner)).to_dict()))
+        output = args.output or (execution.resolve_path("raw") if execution else PROJECT_ROOT / "results" / "raw" / "matrices")
+        print(json.dumps(execute_matrix(matrix, output, _load_runner(args.runner), execution_spec=execution).to_dict()))
         return 0
     except (MatrixValidationError, ValueError) as exc:
         raise SystemExit(f"Erro na matriz experimental: {exc}") from exc

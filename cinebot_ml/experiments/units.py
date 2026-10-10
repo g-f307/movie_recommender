@@ -1,4 +1,4 @@
-"""Unidades sintéticas pareadas e catálogo de holdout para a matriz v1."""
+"""Unidades sintéticas pareadas e catálogos isolados por execução."""
 
 from __future__ import annotations
 
@@ -15,6 +15,11 @@ from cinebot_ml.dataset import load_catalog
 from cinebot_ml.experiment_config import sha256_file
 from cinebot_ml.experimental_splits import reconstruct_assignments
 from cinebot_ml.experiments.cold_start import profile_payload
+from cinebot_ml.experiments.execution import (
+    ExecutionSpec,
+    ExecutionSpecError,
+    validate_matrix_execution,
+)
 from cinebot_ml.experiments.matrix import ExperimentCell, ExperimentMatrix, load_experiment_matrix
 from cinebot_ml.personalization import FeedbackEvent, ProfileUpdater, StateSnapshot, UserState
 from cinebot_ml.ranking.candidates import build_candidate_set
@@ -64,13 +69,33 @@ def build_holdout_catalog(source: Path = DEFAULT_DATA_PATH, split_path: Path = S
     return load_catalog(output), sha256_file(output)
 
 
-def _unit(cell: ExperimentCell, catalog: list[dict], catalog_sha256: str) -> dict:
+def build_holdout_catalog_for_execution(execution_spec: ExecutionSpec) -> tuple[list[dict], str]:
+    """Cria o catálogo da execução declarada sem recorrer a saídas legadas."""
+    return build_holdout_catalog(
+        source=execution_spec.resolve_path("source_catalog"),
+        split_path=execution_spec.resolve_path("split_manifest"),
+        output=execution_spec.resolve_path("catalog"),
+    )
+
+
+def _unit(
+    cell: ExperimentCell,
+    catalog: list[dict],
+    catalog_sha256: str,
+    *,
+    catalog_path: str = "results/derived/test_catalog.json",
+    exposure_policy: str = "neutral-exposure-v1",
+) -> dict:
+    if exposure_policy != "neutral-exposure-v1":
+        raise ExecutionSpecError(
+            "A geração de unidades para exposição fechada será implementada na issue #87."
+        )
     agent = build_agent(cell.persona, cell.seed, catalog)
     initial = StateSnapshot(UserState(agent.agent_id, "synthetic", _time(0),
                                       initial_profile=profile_payload(agent, cell.profile)))
     state = initial
     exposure = list(catalog)
-    random.Random(f"neutral-exposure-v1:{agent.agent_id}").shuffle(exposure)
+    random.Random(f"{exposure_policy}:{agent.agent_id}").shuffle(exposure)
     if len(exposure) <= EVENTS[cell.condition]:
         raise ValueError("Holdout insuficiente para o histórico causal.")
     updater = ProfileUpdater()
@@ -102,7 +127,7 @@ def _unit(cell: ExperimentCell, catalog: list[dict], catalog_sha256: str) -> dic
         history=tuple(event.to_dict() for event in state.state.history),
     )
     candidates = build_candidate_set(catalog, request,
-                                     catalog_path="results/derived/test_catalog.json",
+                                     catalog_path=catalog_path,
                                      catalog_sha256=catalog_sha256)
     judgments = [{"movie_id": movie["id"],
                   "value": agent.evaluate(movie, EVENTS[cell.condition]).graded_relevance}
@@ -119,13 +144,34 @@ def _unit(cell: ExperimentCell, catalog: list[dict], catalog_sha256: str) -> dic
     }
 
 
-def write_units(matrix: ExperimentMatrix, catalog: list[dict], catalog_sha256: str,
-                output: Path = UNITS) -> int:
+def write_units(
+    matrix: ExperimentMatrix,
+    catalog: list[dict],
+    catalog_sha256: str,
+    output: Path = UNITS,
+    *,
+    execution_spec: ExecutionSpec | None = None,
+) -> int:
+    catalog_path = "results/derived/test_catalog.json"
+    exposure_policy = "neutral-exposure-v1"
+    if execution_spec is not None:
+        validate_matrix_execution(matrix, execution_spec)
+        if output.resolve() != execution_spec.resolve_path("units"):
+            raise ExecutionSpecError("As unidades v2 devem usar exclusivamente paths.units da execução.")
+        catalog_path = execution_spec.paths["catalog"]
+        exposure_policy = execution_spec.exposure_policy
+        if exposure_policy != "neutral-exposure-v1":
+            raise ExecutionSpecError(
+                "A geração de unidades para exposição fechada será implementada na issue #87."
+            )
     unique = {cell.comparison_id: cell for cell in matrix.cells}
     output.mkdir(parents=True, exist_ok=True)
     for comparison_id, cell in sorted(unique.items()):
         path = output / f"{comparison_id}.json"
-        encoded = json.dumps(_unit(cell, catalog, catalog_sha256),
+        encoded = json.dumps(_unit(
+            cell, catalog, catalog_sha256, catalog_path=catalog_path,
+            exposure_policy=exposure_policy,
+        ),
                              ensure_ascii=False, sort_keys=True) + "\n"
         if path.exists():
             if path.read_text(encoding="utf-8") != encoded:

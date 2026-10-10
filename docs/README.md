@@ -14,6 +14,7 @@
 - [`research/ranking_evaluation.md`](research/ranking_evaluation.md): métricas Top-K, contrato de relevância e benchmark unificado B0–B5.
 - [`research/discovery_metrics.md`](research/discovery_metrics.md): fórmulas e limites de diversidade, novidade, popularidade e estabilidade.
 - [`research/experiment_matrix.md`](research/experiment_matrix.md): enumeração, identidade, execução, checkpoints e retomada da matriz experimental.
+- [`research/execution_v2.md`](research/execution_v2.md): contrato, isolamento de diretórios e comandos da infraestrutura complementar.
 - [`research/cold_start_study.md`](research/cold_start_study.md): projeções P0–P5, pareamento, execução e saídas do estudo de cold start.
 - [`research/convergence_study.md`](research/convergence_study.md): checkpoints C0–C5, ganhos, valor marginal e curvas longitudinais.
 - [`research/ablation_study.md`](research/ablation_study.md): variantes A0–A6, componentes ativos e execução pareada.

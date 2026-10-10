@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/g-f307/movie_recommender/configs/experiments/execution_v2.schema.json",
+  "title": "Movie Recommender isolated execution v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "execution", "paths"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "protocol_version", "frozen", "exposure_policy"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "pattern": "^2\\."},
+        "protocol_version": {"type": "string", "minLength": 1},
+        "frozen": {"const": true},
+        "exposure_policy": {"type": "string", "minLength": 1}
+      }
+    },
+    "paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_catalog", "split_manifest", "catalog", "units", "raw", "manifests", "reports"],
+      "properties": {
+        "source_catalog": {"type": "string", "minLength": 1},
+        "split_manifest": {"type": "string", "minLength": 1},
+        "catalog": {"type": "string", "minLength": 1},
+        "units": {"type": "string", "minLength": 1},
+        "raw": {"type": "string", "minLength": 1},
+        "manifests": {"type": "string", "minLength": 1},
+        "reports": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}
