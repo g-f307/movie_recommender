@@ -1,4 +1,4 @@
-.PHONY: setup setup-full validate test compile smoke readiness prepare-b2 prepare-b3 ablation robustness contrasts discovery-cost external-validation final-evidence paper-artifacts
+.PHONY: setup setup-full validate test compile smoke readiness prepare-b2 prepare-b3 ablation robustness contrasts discovery-cost external-validation final-evidence paper-artifacts submission-package
 
 PYTHON ?= python3
 
@@ -54,3 +54,14 @@ final-evidence:
 
 paper-artifacts:
 	$(PYTHON) -m cinebot_ml.analysis.paper_artifacts --output-root "$${OUTPUT_ROOT:-results/paper_artifacts_v1}"
+
+submission-package:
+	cd reports/ACM_SAC_2027_Article_Template && latexmk -pdf -interaction=nonstopmode -halt-on-error movie_recommender_draft.tex
+	$(PYTHON) -m cinebot_ml.analysis.submission_package \
+		--pdf reports/ACM_SAC_2027_Article_Template/movie_recommender_draft.pdf \
+		--output "$${OUTPUT_ROOT:-artifacts/submission_sac2027}" \
+		--checked-at "$${CHECKED_AT:-2026-10-01}" \
+		--forbidden-identifier Gabriel \
+		--forbidden-identifier gf307 \
+		--forbidden-identifier "Instituto Federal do Amazonas" \
+		--forbidden-identifier "LG Electronics"

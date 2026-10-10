@@ -1,5 +1,6 @@
 import hashlib
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -35,6 +36,7 @@ def evidence_fixture():
         ],
         "robustness": [
             {"label": "Contraditório", "estimate": -0.208, "ci95": [-0.289, -0.128]},
+            {"label": "broad_preference", "estimate": 0.1, "ci95": [0.02, 0.18]},
         ],
         "transportability": [
             {"source": "Sintético", "estimate": -0.0181, "ci95": [-0.0343, -0.0022], "n": 35},
@@ -48,9 +50,11 @@ def evidence_fixture():
             "hypotheses": [
                 {"rq": "RQ1", "hypothesis": "H1", "estimate": -0.0181,
                  "ci95": [-0.0343, -0.0022], "decision": "não sustentada"},
+                {"rq": "RQ4", "hypothesis": "H3", "estimate": 0.2819,
+                 "ci95": [0.2288, 0.3368], "decision": "sustentada no simulador"},
             ],
             "contrasts": [
-                {"contrast": "B5-B4", "estimate": -0.0181,
+                {"contrast": "B5-B4 sintético", "estimate": -0.0181,
                  "ci95": [-0.0343, -0.0022], "p_value": 0.0356, "n": 35},
             ],
         },
@@ -93,6 +97,33 @@ class PaperArtifactTests(unittest.TestCase):
             actual = hashlib.sha256((output / "figures/primary_paired.png").read_bytes()).hexdigest()
             self.assertEqual(recorded["sha256"], actual)
             self.assertGreater(recorded["bytes"], 1000)
+
+    def test_artefatos_editoriais_em_ingles_nao_expoem_rotulos_em_portugues(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "paper"
+
+            render_paper_artifacts(evidence_fixture(), output)
+
+            rendered_text = "\n".join(
+                subprocess.run(
+                    ["pdftotext", str(path), "-"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout
+                for path in sorted((output / "figures").glob("*.pdf"))
+            )
+            rendered_text += "\n" + "\n".join(
+                path.read_text(encoding="utf-8")
+                for path in sorted((output / "tables").glob("*.tex"))
+            )
+            for forbidden in (
+                "Agente", "Média", "Diferença", "Efeito", "Sintético", "sintético",
+                "Sem histórico", "Popularidade", "sustentada", "não",
+            ):
+                with self.subTest(forbidden=forbidden):
+                    self.assertNotIn(forbidden, rendered_text)
+            self.assertNotIn("_", rendered_text)
 
     def test_nao_sobrescreve_destino_com_conteudo(self):
         with tempfile.TemporaryDirectory() as temporary:
