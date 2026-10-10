@@ -30,6 +30,12 @@ mesmos campos sem o método; assim, métodos com o mesmo identificador de
 comparação devem compartilhar agente, estado e conjunto candidato no runner do
 estudo.
 
+Quando uma especificação de execução é informada, a célula também contém
+`execution_id` e `execution_config_sha256`. Esses campos entram nas duas
+identidades e impedem que checkpoints de execuções diferentes se pareiem. A
+v1.1 não recebe campos adicionais: suas identidades e manifestos preservados
+continuam byte a byte compatíveis.
+
 O `matrix_id` inclui hashes das três configurações e o conjunto ordenado de IDs
 das células. Alterar a ordem de entrada não altera as identidades.
 
