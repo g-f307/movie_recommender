@@ -184,8 +184,13 @@ def _append_unique(values: tuple[Any, ...], item: Any) -> tuple[Any, ...]:
 class ProfileUpdater:
     """Aplica feedback a um snapshot sem acoplar a atualização ao recomendador."""
 
-    def __init__(self, config_path: Path = DEFAULT_PROFILE_UPDATE_CONFIG_PATH) -> None:
-        self.config = load_profile_update_config(config_path)
+    def __init__(
+        self,
+        config_path: Path = DEFAULT_PROFILE_UPDATE_CONFIG_PATH,
+        *,
+        config: ProfileUpdateConfig | None = None,
+    ) -> None:
+        self.config = config or load_profile_update_config(config_path)
 
     def update(
         self,
