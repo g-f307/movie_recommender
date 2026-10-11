@@ -25,6 +25,7 @@ _EXPORTS = {
     "freeze_v2_selection": ("v2_orchestration", "freeze_v2_selection"),
     "execute_v2_holdout": ("v2_orchestration", "execute_v2_holdout"),
     "finalize_v2_execution": ("v2_orchestration", "finalize_v2_execution"),
+    "prepare_v2_split": ("v2_orchestration", "prepare_v2_split"),
     "ColdStartProfile": ("cold_start", "ColdStartProfile"),
     "ColdStartReport": ("cold_start", "ColdStartReport"),
     "ColdStartValidationError": ("cold_start", "ColdStartValidationError"),

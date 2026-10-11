@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import csv
 from dataclasses import replace
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from cinebot_ml.experiments.v2_orchestration import (
     execute_v2_validation,
     finalize_v2_execution,
     freeze_v2_selection,
+    prepare_v2_split,
 )
 
 
@@ -81,6 +83,25 @@ class V2OrchestrationTests(unittest.TestCase):
 
             with self.assertRaisesRegex(V2OrchestrationError, "seleção congelada"):
                 execute_v2_holdout(holdout, _result, **self._filters())
+
+    def test_prepares_a_deterministic_v2_split_without_reusing_the_legacy_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            validation, _ = self._plans(root)
+            dataset = root / "datasets" / "movie_preferences.csv"
+            dataset.parent.mkdir(parents=True)
+            with dataset.open("w", encoding="utf-8", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=["movie_id", "relevante"])
+                writer.writeheader()
+                for movie_id in range(12):
+                    writer.writerow({"movie_id": movie_id, "relevante": movie_id % 2})
+            validation.execution.resolve_path("split_manifest").unlink()
+
+            manifest = prepare_v2_split(validation.execution, dataset_path=dataset, attempts=4)
+
+            self.assertEqual(manifest["execution_id"], "execution-v2")
+            self.assertTrue(validation.execution.resolve_path("split_manifest").is_file())
+            self.assertNotIn("results/manifests/splits", str(validation.execution.resolve_path("split_manifest")))
 
     def test_runs_validation_freezes_selection_and_seals_a_partitioned_execution(self):
         with tempfile.TemporaryDirectory() as directory:

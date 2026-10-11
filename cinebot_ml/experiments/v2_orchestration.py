@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from cinebot_ml.experiment_config import sha256_file
+from cinebot_ml.experiments.execution import ExecutionSpec
 from cinebot_ml.experiments.freeze import audit_execution
 from cinebot_ml.experiments.matrix import ExperimentCell, ExperimentMatrix, MatrixExecutionReport, execute_matrix
 from cinebot_ml.experiments.policy_sensitivity import (
@@ -27,6 +28,11 @@ from cinebot_ml.experiments.v2_config import (
     load_v2_experiment_plan,
 )
 from cinebot_ml.experiments.v2_cell_runner import build_v2_runner, prepare_v2_units
+from cinebot_ml.experimental_splits import (
+    SplitConfig,
+    create_group_manifest_from_csv,
+    write_manifest,
+)
 
 
 class V2OrchestrationError(ValueError):
@@ -41,6 +47,48 @@ def _output(plan: V2ExperimentPlan) -> Path:
     if output.as_posix().endswith(plan.output_root):
         return output
     raise V2OrchestrationError("A configuração da partição diverge de paths.raw da execução.")
+
+
+def prepare_v2_split(
+    execution: ExecutionSpec,
+    *,
+    dataset_path: Path | None = None,
+    attempts: int = 128,
+) -> dict[str, Any]:
+    """Materializa o split por filme exclusivo da execução v2, sem ler a v1.1."""
+    dataset = (dataset_path or execution.project_root / "datasets/movie_preferences.csv").resolve()
+    root = execution.project_root.resolve()
+    if dataset != root and root not in dataset.parents:
+        raise V2OrchestrationError("O dataset do split v2 deve permanecer dentro do projeto.")
+    if not dataset.is_file():
+        raise V2OrchestrationError(f"Dataset v2 ausente: {dataset}")
+    try:
+        manifest = create_group_manifest_from_csv(
+            dataset,
+            SplitConfig(seed=42, attempts=attempts, protocol_version=execution.protocol_version),
+        )
+    except ValueError as exc:
+        raise V2OrchestrationError(f"Não foi possível criar o split v2: {exc}") from exc
+    manifest = {
+        **manifest,
+        "execution_id": execution.execution_id,
+        "execution_config_sha256": execution.sha256,
+        "protocol_version": execution.protocol_version,
+    }
+    target = execution.resolve_path("split_manifest")
+    if target.is_file():
+        try:
+            existing = json.loads(target.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise V2OrchestrationError("Split v2 existente está corrompido.") from exc
+        if existing != manifest:
+            raise V2OrchestrationError("Split v2 existente diverge da fonte ou configuração declarada.")
+        return manifest
+    try:
+        write_manifest(manifest, target)
+    except OSError as exc:
+        raise V2OrchestrationError(f"Não foi possível gravar o split v2: {exc}") from exc
+    return manifest
 
 
 def _selection_dir(plan: V2ExperimentPlan, matrix: ExperimentMatrix) -> Path:
@@ -228,6 +276,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command == "validation":
             matrix = build_v2_experiment_matrix(validation, **filters)
+            prepare_v2_split(validation.execution)
             prepare_v2_units(matrix, validation.execution)
             _, report = execute_v2_validation(validation, build_v2_runner(validation.execution), **filters)
             print(json.dumps(report.to_dict(), ensure_ascii=False, sort_keys=True))
