@@ -48,6 +48,11 @@ class ExperimentCell:
     run: int = 1
     execution_id: str | None = None
     execution_config_sha256: str | None = None
+    partition: str | None = None
+    policy_scenario_id: str | None = None
+    policy_scenario_hash: str | None = None
+    policy_selection_id: str | None = None
+    policy_selection_sha256: str | None = None
 
     def _identity(self) -> dict[str, Any]:
         return {key: value for key, value in asdict(self).items() if value is not None}
@@ -77,6 +82,10 @@ class ExperimentMatrix:
     excluded: tuple[Mapping[str, Any], ...]
     execution_id: str | None = None
     execution_config_sha256: str | None = None
+    partition: str | None = None
+    policy_sensitivity_config_sha256: str | None = None
+    policy_selection_id: str | None = None
+    policy_selection_sha256: str | None = None
 
     @property
     def matrix_id(self) -> str:
@@ -92,6 +101,11 @@ class ExperimentMatrix:
         if self.execution_id is not None:
             identity["execution_id"] = self.execution_id
             identity["execution_config_sha256"] = self.execution_config_sha256
+        if self.partition is not None:
+            identity["partition"] = self.partition
+            identity["policy_sensitivity_config_sha256"] = self.policy_sensitivity_config_sha256
+            identity["policy_selection_id"] = self.policy_selection_id
+            identity["policy_selection_sha256"] = self.policy_selection_sha256
         return _hash(identity)
 
     @property
@@ -113,6 +127,12 @@ class ExperimentMatrix:
         if self.execution_id is not None:
             manifest["execution_id"] = self.execution_id
             manifest["execution_config_sha256"] = self.execution_config_sha256
+        if self.partition is not None:
+            manifest["partition"] = self.partition
+            manifest["policy_sensitivity_config_sha256"] = self.policy_sensitivity_config_sha256
+            if self.policy_selection_id is not None:
+                manifest["policy_selection_id"] = self.policy_selection_id
+                manifest["policy_selection_sha256"] = self.policy_selection_sha256
         return manifest
 
 
