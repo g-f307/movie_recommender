@@ -86,6 +86,30 @@ class V2CellRunnerTests(unittest.TestCase):
         self.assertEqual(result["exposure_policy"], "closed-loop-v2")
         self.assertTrue(result["trajectory_audit"]["complete"])
 
+    def test_materializes_deterministic_closed_loop_units(self):
+        spec = load_execution_spec()
+        cell = ExperimentCell(
+            "B4", "C0", "P0", "consistent", 42, 5,
+            execution_id=spec.execution_id,
+            execution_config_sha256=spec.sha256,
+            partition="validation",
+            policy_scenario_id="S0",
+            policy_scenario_hash="a" * 24,
+        )
+        kwargs = {
+            "catalog_path": "fixtures/v2_catalog.json",
+            "exposure_config": load_closed_loop_exposure_config(),
+            "profile_observation_config": load_profile_observation_config(),
+        }
+
+        first = _closed_loop_unit(cell, catalog(), "a" * 64, **kwargs)
+        second = _closed_loop_unit(cell, catalog(), "a" * 64, **kwargs)
+
+        self.assertEqual(
+            json.dumps(first, ensure_ascii=False, sort_keys=True),
+            json.dumps(second, ensure_ascii=False, sort_keys=True),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

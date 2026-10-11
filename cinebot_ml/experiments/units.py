@@ -55,6 +55,18 @@ PRIVATE_MARKERS = ("api_key", "apikey", "credential", "email", "name", "password
                    "phone", "secret", "token")
 
 
+def _deterministic_trajectory_payload(value):
+    """Remove telemetria de execução da trajetória que será reutilizada como unidade."""
+    if isinstance(value, dict):
+        return {
+            key: 0.0 if key == "latency_ms" else _deterministic_trajectory_payload(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_deterministic_trajectory_payload(item) for item in value]
+    return value
+
+
 def _time(step: int) -> str:
     return (EPOCH + timedelta(minutes=step)).isoformat().replace("+00:00", "Z")
 
@@ -287,7 +299,7 @@ def _closed_loop_unit(
             "key": pairing_key,
             "method": cell.method,
         },
-        "trajectory": trajectory.to_dict(),
+        "trajectory": _deterministic_trajectory_payload(trajectory.to_dict()),
         "trajectory_audit": audit,
         "relevance_source": "synthetic_user",
         "relevance_version": "closed-loop-v2",
@@ -375,7 +387,19 @@ def write_units(
         encoded = json.dumps(payload,
                              ensure_ascii=False, sort_keys=True) + "\n"
         if path.exists():
-            if path.read_text(encoding="utf-8") != encoded:
+            existing = path.read_text(encoding="utf-8")
+            if existing != encoded and exposure_policy == "closed-loop-v2":
+                try:
+                    existing_payload = _deterministic_trajectory_payload(json.loads(existing))
+                except (TypeError, ValueError) as exc:
+                    raise FileExistsError(f"Unidade v2 existente inválida: {path}") from exc
+                existing = json.dumps(
+                    existing_payload, ensure_ascii=False, sort_keys=True
+                ) + "\n"
+                if existing == encoded:
+                    path.write_text(encoded, encoding="utf-8")
+                    continue
+            if existing != encoded:
                 raise FileExistsError(f"Unidade divergente já existente: {path}")
             continue
         path.parent.mkdir(parents=True, exist_ok=True)
