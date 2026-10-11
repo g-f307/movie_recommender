@@ -77,6 +77,19 @@ class ExecutionSpecTests(unittest.TestCase):
         )
         self.assertNotIn("profile_observation_config", spec.output_paths)
 
+    def test_configuracao_de_exposicao_fechada_e_referenciada_sem_virar_saida(self):
+        payload = valid_spec()
+        payload["closed_loop_config"] = "configs/experiments/closed_loop_v2.yaml"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            spec = load_execution_spec(self.write_spec(root, payload), project_root=root)
+
+        self.assertEqual(
+            spec.closed_loop_config,
+            "configs/experiments/closed_loop_v2.yaml",
+        )
+        self.assertNotIn("closed_loop_config", spec.output_paths)
+
     def test_lock_desatualizado_e_rejeitado_antes_de_criar_artefatos(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -171,12 +184,12 @@ class ExecutionSpecTests(unittest.TestCase):
             with self.assertRaisesRegex(FileExistsError, "não será sobrescrito"):
                 finalize_versioned_execution(matrix, spec, output, project_root=root)
 
-    def test_unidades_v2_nao_caem_silenciosamente_na_politica_neutra_v1(self):
+    def test_unidades_v2_rejeitam_metodo_fora_do_contrato_pareado(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             spec = load_execution_spec(self.write_spec(root), project_root=root)
             cell = ExperimentCell(
-                "B4", "C1", "P5", "consistent", 42, 5,
+                "B0", "C1", "P5", "consistent", 42, 5,
                 execution_id=spec.execution_id,
                 execution_config_sha256=spec.sha256,
             )
@@ -186,9 +199,68 @@ class ExecutionSpecTests(unittest.TestCase):
                 execution_config_sha256=spec.sha256,
             )
             units = spec.resolve_path("units", root)
-            with self.assertRaisesRegex(ExecutionSpecError, "issue #87"):
+            with self.assertRaisesRegex(ExecutionSpecError, "B4 e B5"):
                 write_units(matrix, [], "a" * 64, units, execution_spec=spec)
             self.assertFalse(units.exists())
+
+    def test_unidades_v2_geram_trilha_fechada_por_metodo_e_auditavel(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            spec = load_execution_spec(self.write_spec(root), project_root=root)
+            cell = ExperimentCell(
+                "B5", "C1", "P2", "consistent", 42, 3,
+                execution_id=spec.execution_id,
+                execution_config_sha256=spec.sha256,
+            )
+            paired = ExperimentCell(
+                "B4", "C1", "P2", "consistent", 42, 3,
+                execution_id=spec.execution_id,
+                execution_config_sha256=spec.sha256,
+            )
+            matrix = ExperimentMatrix(
+                "2.0", spec.protocol_version, "a" * 64, "b" * 64, "c" * 64,
+                (cell, paired), (), execution_id=spec.execution_id,
+                execution_config_sha256=spec.sha256,
+            )
+            catalog = [
+                {
+                    "id": index,
+                    "titulo": f"Filme {index}",
+                    "perfil": "drama",
+                    "genero": "drama",
+                    "generos_secundarios": [],
+                    "ano": 2000 + index,
+                    "nota": 7.0,
+                    "votos": index * 100,
+                    "diretor": "Diretor",
+                    "palavras_chave": ["tema"],
+                    "sinopse": "História de teste.",
+                }
+                for index in range(1, 12)
+            ]
+
+            try:
+                count = write_units(
+                    matrix, catalog, "a" * 64, spec.resolve_path("units"),
+                    execution_spec=spec,
+                )
+            except ExecutionSpecError as exc:
+                self.fail(f"A política fechada v2 ainda foi bloqueada: {exc}")
+
+            payload = json.loads((spec.resolve_path("units") / f"{cell.cell_id}.json").read_text())
+            unit = payload["units"][0]
+            paired_payload = json.loads(
+                (spec.resolve_path("units") / f"{paired.cell_id}.json").read_text()
+            )
+            self.assertEqual(count, 2)
+            self.assertEqual(payload["exposure_policy"], "closed-loop-v2")
+            self.assertEqual(payload["pairing"]["pairing_id"], paired_payload["pairing"]["pairing_id"])
+            self.assertEqual(len(payload["trajectory"]["steps"]), 1)
+            self.assertEqual(
+                payload["trajectory"]["steps"][0]["feedback_event"]["movie_id"],
+                payload["trajectory"]["steps"][0]["presented_movie_ids"][0],
+            )
+            self.assertEqual(unit["state_version"], 1)
 
     def test_comando_de_validacao_nao_emite_aviso_de_modulo_precarregado(self):
         result = subprocess.run(

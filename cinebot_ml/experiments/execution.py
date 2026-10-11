@@ -61,6 +61,7 @@ class ExecutionSpec:
     exposure_policy: str
     paths: Mapping[str, str]
     profile_observation_config: str | None
+    closed_loop_config: str | None
     sha256: str
     source_path: Path
     project_root: Path
@@ -72,6 +73,8 @@ class ExecutionSpec:
     def resolve_path(self, key: str, project_root: Path | None = None) -> Path:
         if key == "profile_observation_config" and self.profile_observation_config is not None:
             relative = self.profile_observation_config
+        elif key == "closed_loop_config" and self.closed_loop_config is not None:
+            relative = self.closed_loop_config
         else:
             try:
                 relative = self.paths[key]
@@ -105,6 +108,9 @@ def validate_execution_spec(payload: Mapping[str, Any], schema_path: Path = DEFA
     profile_observation_config = payload.get("profile_observation_config")
     if profile_observation_config is not None:
         _relative_path(profile_observation_config, "profile_observation_config")
+    closed_loop_config = payload.get("closed_loop_config")
+    if closed_loop_config is not None:
+        _relative_path(closed_loop_config, "closed_loop_config")
     outputs = [paths[key] for key in OUTPUT_KEYS]
     if len(outputs) != len(set(outputs)):
         raise ExecutionSpecError("Os caminhos de saída da execução devem ser distintos.")
@@ -141,6 +147,7 @@ def load_execution_spec(
         raise ExecutionSpecError("A configuração v2 diverge do lock; crie uma nova versão e lock.")
     paths = {key: _relative_path(value, key) for key, value in payload["paths"].items()}
     profile_observation_config = payload.get("profile_observation_config")
+    closed_loop_config = payload.get("closed_loop_config")
     spec = ExecutionSpec(
         execution_id=payload["execution"]["id"],
         version=payload["execution"]["version"],
@@ -152,6 +159,11 @@ def load_execution_spec(
             if profile_observation_config is not None
             else None
         ),
+        closed_loop_config=(
+            _relative_path(closed_loop_config, "closed_loop_config")
+            if closed_loop_config is not None
+            else None
+        ),
         sha256=digest,
         source_path=path,
         project_root=project_root.resolve(),
@@ -160,6 +172,8 @@ def load_execution_spec(
         spec.resolve_path(key, project_root)
     if spec.profile_observation_config is not None:
         spec.resolve_path("profile_observation_config", project_root)
+    if spec.closed_loop_config is not None:
+        spec.resolve_path("closed_loop_config", project_root)
     return spec
 
 

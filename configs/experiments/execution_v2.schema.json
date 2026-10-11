@@ -20,6 +20,7 @@
       }
     },
     "profile_observation_config": {"type": "string", "minLength": 1},
+    "closed_loop_config": {"type": "string", "minLength": 1},
     "paths": {
       "type": "object",
       "additionalProperties": false,

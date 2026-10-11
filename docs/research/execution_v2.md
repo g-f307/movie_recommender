@@ -4,18 +4,20 @@
 
 A execução v2 é uma área separada para o estudo complementar da Etapa 8. Ela
 não altera, reutiliza nem reavalia o holdout oficial v1.1. A infraestrutura
-introduz uma identidade própria, uma configuração congelada e diretórios
-exclusivos; ainda não produz evidência científica v2. A geração em ciclo
-fechado será implementada na issue #87.
+introduz uma identidade própria, uma configuração congelada, diretórios
+exclusivos e unidades B4/B5 com exposição em ciclo fechado. Ainda não produz
+evidência científica v2: a matriz e a execução complementar permanecem
+artefatos a versionar antes de qualquer análise.
 
 ## Contrato
 
 `configs/experiments/execution_v2.yaml` descreve a execução `execution-v2` e
 seu lock registra o SHA-256 exato do arquivo. A carga falha antes de criar
 artefatos se o schema, o lock ou os caminhos forem inválidos. A especificação
-também referencia a configuração congelada de perfil declarado v2; ela é um
-insumo auditável, não uma saída e não permite que B4/B5 acessem a preferência
-latente.
+também referencia as configurações congeladas de perfil declarado e exposição
+em ciclo fechado v2. Ambas são insumos auditáveis, não saídas. O perfil
+declarado não permite que B4/B5 acessem a preferência latente e a política de
+exposição registra o ranking que originou cada evento de feedback.
 
 As saídas ficam abaixo de `results/v2/`:
 
@@ -52,8 +54,8 @@ python -m cinebot_ml.experiments.execution prepare \
   --spec configs/experiments/execution_v2.yaml
 ```
 
-Quando os contratos v2 de configuração, matriz e unidades estiverem
-implementados, auditar os checkpoints e finalizar sem sobrescrever o manifesto:
+Quando a configuração e a matriz v2 estiverem versionadas, será possível
+auditar os checkpoints e finalizar sem sobrescrever o manifesto:
 
 ```bash
 python -m cinebot_ml.experiments.execution audit \
@@ -75,6 +77,7 @@ insumos e checkpoints.
 ## Compatibilidade
 
 Sem `--execution-spec`, os comandos existentes conservam o comportamento,
-identidades e artefatos v1.1. A nova especificação não transforma a política
-`neutral-exposure-v1` em ciclo fechado: uma tentativa de gerar unidades v2
-nessa política é recusada até a implementação específica da #87.
+identidades e artefatos v1.1. Com a especificação v2, a geração de unidades
+usa exclusivamente `closed-loop-v2`, preserva uma unidade por método e associa
+B4 e B5 por uma chave de pareamento compartilhada. A política
+`neutral-exposure-v1` continua restrita ao fluxo legado.
