@@ -27,6 +27,11 @@ consumo da análise v2; ela preserva os hashes e a origem de cada célula.
   --selection results/v2/reports/validation/<matrix_id>/selection.json
 ```
 
+Para executar a família corrigida v2.1, acrescente
+`--protocol protocol-v2.1` a todas as etapas. Ela usa exclusivamente
+`results/v2_1/`; não mistura, substitui ou torna válida a execução diagnóstica
+v2.0.
+
 Os comandos `validation` e `holdout` materializam unidades e executam a matriz
 inteira por padrão. Para um teste controlado, informe o mesmo recorte em todas
 as etapas, por exemplo `--condition C0 --profile P0 --persona consistent

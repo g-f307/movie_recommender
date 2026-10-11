@@ -15,9 +15,16 @@ com status `failed`; não são convertidas em resultados avaliados.
 ## Materialização
 
 `prepare_v2_units(matrix, execution_spec)` reconstrói o catálogo v2 a partir
-dos caminhos declarados na especificação e grava uma unidade por célula sob
-`paths.units`. Cada unidade contém perfil declarado, proveniência do ruído,
-trajetória de ciclo fechado, relevância sintética, snapshots e chave B4/B5.
+dos caminhos declarados na especificação. No `protocol-v2.0`, grava uma unidade
+por célula sob `paths.units`. No `protocol-v2.1`, grava uma única unidade por
+`comparison_id`, contendo uma trajetória de exposição compartilhada e as duas
+unidades derivadas, B4 e B5.
+
+Para v2.1, a exposição é ordenada apenas por `comparison_id`; ela não consulta
+o ranking de nenhum método. O arquivo registra `trajectory_sha256`, e o runner
+rejeita a unidade se B4 e B5 não tiverem candidatos, relevâncias e hash de
+trajetória iguais. O mesmo hash entra na auditoria de checkpoints e na análise
+selada, impedindo que uma divergência silenciosa seja tratada como par válido.
 
 As unidades normalizam `latency_ms` para `0.0` dentro das trajetórias
 serializadas. Esse valor é telemetria dependente da máquina e não participa da
@@ -29,7 +36,7 @@ em artefatos próprios de desempenho.
 
 `run_v2_cell` retorna o registro individual do benchmark e preserva no mesmo
 objeto a partição, cenário e hash, perfil observado, política de exposição,
-auditoria causal, pareamento, candidato e relevância. `build_v2_runner` fornece
+auditoria causal, pareamento, hash da trajetória, candidato e relevância. `build_v2_runner` fornece
 o adaptador sem estado global que será usado pela orquestração da #97.
 
 O runner não abre o holdout por conta própria. A autorização para enumerar essa

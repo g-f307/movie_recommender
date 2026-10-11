@@ -32,15 +32,33 @@ outra versão. Em particular, `protocol-v2.1` só pode escrever em
 `results/v2_1/`; assim, uma reexecução não sobrescreve nem aparenta validar os
 artefatos v2.0.
 
-## Invariantes que a implementação deve preservar
+## Materialização e auditoria
 
 - B4 e B5 recebem a mesma sequência de itens elegíveis para cada par;
-- a sequência varia com a identidade do par e sua seed, não com o método;
+- a sequência é uma permutação por hash de `comparison_id`, que já incorpora a
+  seed, e não consulta método, score, ranking ou feedback de B4/B5;
 - C0–C5, tempo lógico, remoção de itens consumidos e exaustão continuam
   registrados; e
 - histórico, candidatos, relevâncias e hash da trajetória precisam coincidir
   antes de uma diferença B5 − B4 ser analisada.
 
-Esta mudança versiona o desenho e seus limites. A materialização da trajetória
-compartilhada, o hash por comparação e a adaptação do runner pertencem à issue
-#103. Até ela ser concluída, nenhuma matriz v2.1 deve ser executada.
+`write_units` grava um único arquivo em
+`results/v2_1/units/<comparison_id>.json`. Esse arquivo contém a trajetória,
+seu SHA-256, sua auditoria e duas unidades derivadas (`B4` e `B5`). O runner
+recusa o arquivo se candidatos, relevâncias ou hash não coincidirem entre os
+métodos. A auditoria dos checkpoints repete essa verificação antes de autorizar
+o congelamento; a análise v2.1 também a exige ao ler um manifesto selado.
+
+## Execução
+
+Depois de uma recuperação limpa dos dados e artefatos, use a mesma sequência
+da orquestração com o protocolo explícito:
+
+```bash
+.venv/bin/python -m cinebot_ml.experiments.v2_orchestration validation \
+  --protocol protocol-v2.1
+```
+
+As etapas seguintes devem usar o mesmo `--protocol protocol-v2.1`. A execução
+completa pode demandar tempo considerável; o resultado v2.0 continua somente
+um diagnóstico bloqueado e não deve ser combinado a esta nova família.
