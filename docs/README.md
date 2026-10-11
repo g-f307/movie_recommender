@@ -17,6 +17,7 @@
 - [`research/execution_v2.md`](research/execution_v2.md): contrato, isolamento de diretórios e comandos da infraestrutura complementar.
 - [`research/v2_experiment_config.md`](research/v2_experiment_config.md): contratos congelados e identidades das matrizes validation e holdout v2.
 - [`research/v2_cell_runner.md`](research/v2_cell_runner.md): materialização e avaliação isolada das células B4/B5 em ciclo fechado.
+- [`research/v2_orchestration.md`](research/v2_orchestration.md): ordem validation → seleção congelada → holdout, auditoria e manifesto v2 selado.
 - [`research/closed_loop_exposure_v2.md`](research/closed_loop_exposure_v2.md): política causal v2, pareamento B4/B5 e auditoria de trajetórias de feedback.
 - [`research/policy_sensitivity_v2.md`](research/policy_sensitivity_v2.md): cenários v2, seleção em validação e congelamento pré-holdout de parâmetros B5.
 - [`research/v2_analysis.md`](research/v2_analysis.md): validação, inferência pareada e artefatos do estudo complementar v2.

@@ -69,30 +69,12 @@ python -m cinebot_ml.experiments.v2_config list --partition holdout \
   --selection results/v2/reports/<selection_id>/selection.json
 ```
 
-Depois que as unidades e o runner forem implementados, será possível auditar os
-checkpoints e finalizar sem sobrescrever o manifesto:
-
 O runner de células e seus requisitos de proveniência são documentados em
-[`v2_cell_runner.md`](v2_cell_runner.md). A orquestração completa continua
-separada: a validação deve terminar e congelar a seleção antes da abertura do
-holdout.
-
-```bash
-python -m cinebot_ml.experiments.execution audit \
-  --spec configs/experiments/execution_v2.yaml \
-  --experiment-config configs/experiment_v2.yaml \
-  --matrix-config configs/experiments/matrix_v2.yaml
-
-python -m cinebot_ml.experiments.finalize \
-  --execution-spec configs/experiments/execution_v2.yaml \
-  --config configs/experiment_v2.yaml \
-  --matrix-config configs/experiments/matrix_v2.yaml
-```
-
-O comando de auditoria recusa manifestos, células e diretórios que não
-coincidam com a execução declarada. A finalização grava
-`execution.manifest.json` uma única vez, com hashes da especificação, matriz,
-insumos e checkpoints.
+[`v2_cell_runner.md`](v2_cell_runner.md). A orquestração obrigatória, os
+comandos e as proteções do holdout estão em
+[`v2_orchestration.md`](v2_orchestration.md). Ela grava validation e holdout em
+diretórios distintos, audita ambas as matrizes e só então cria um
+`execution.manifest.json` selado para a análise.
 
 ## Compatibilidade
 
