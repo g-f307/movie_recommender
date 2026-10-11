@@ -16,15 +16,17 @@ com status `failed`; não são convertidas em resultados avaliados.
 
 `prepare_v2_units(matrix, execution_spec)` reconstrói o catálogo v2 a partir
 dos caminhos declarados na especificação. No `protocol-v2.0`, grava uma unidade
-por célula sob `paths.units`. No `protocol-v2.1`, grava uma única unidade por
-`comparison_id`, contendo uma trajetória de exposição compartilhada e as duas
-unidades derivadas, B4 e B5.
+por célula sob `paths.units`. Na revisão 2.1.1 do `protocol-v2.1`, grava uma
+única unidade por `exposure_id`, compartilhada por B4/B5 e pelos cenários S0–S6
+da mesma entrada experimental.
 
-Para v2.1, a exposição é ordenada apenas por `comparison_id`; ela não consulta
-o ranking de nenhum método. O arquivo registra `trajectory_sha256`, e o runner
-rejeita a unidade se B4 e B5 não tiverem candidatos, relevâncias e hash de
-trajetória iguais. O mesmo hash entra na auditoria de checkpoints e na análise
-selada, impedindo que uma divergência silenciosa seja tratada como par válido.
+Para v2.1, a exposição é ordenada apenas por `exposure_id`; ela não consulta
+cenário de política nem ranking de nenhum método. O arquivo registra
+`trajectory_sha256`, os `comparison_id` atendidos e a célula B4/B5 de cada um.
+O runner rejeita uma unidade que não contenha a célula solicitada ou que tenha
+candidatos, relevâncias e hash de trajetória divergentes. O mesmo hash entra na
+auditoria de checkpoints e na análise selada, impedindo que uma divergência
+silenciosa seja tratada como par válido.
 
 As unidades normalizam `latency_ms` para `0.0` dentro das trajetórias
 serializadas. Esse valor é telemetria dependente da máquina e não participa da

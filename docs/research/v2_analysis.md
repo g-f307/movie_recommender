@@ -16,13 +16,14 @@ incremental escolhida apenas na validação v2.
 O comando recebe o `execution.manifest.json` v2. Antes de calcular qualquer
 estatística, ele verifica:
 
-- o status completo, a identidade `execution-v2` e o hash da configuração;
+- o status completo, a identidade da execução (`execution-v2` ou
+  `execution-v2.1`) e o hash da configuração;
 - o hash e a identidade de `matrix.manifest.json`;
 - o conjunto exato e os hashes das células;
 - a correspondência entre cada célula, sua execução, seu resultado e seu
   cenário de política;
-- a política de exposição `closed-loop-v2`, o estado causal da trajetória, o
-  conjunto candidato e o pareamento B4/B5; e
+- a política de exposição compatível, o estado causal da trajetória, o conjunto
+  candidato e o pareamento B4/B5; e
 - a separação entre `validation` e `holdout`.
 
 Células de v1.1, uma configuração diferente, pares incompletos, métricas
@@ -34,9 +35,10 @@ não são imputados.
 
 Em uma execução científica, use `--selection` com o JSON e lock produzidos por
 `freeze_validation_selection`. O carregador confirma a matriz de sensibilidade,
-o hash do cenário, a execução `execution-v2` e a ausência de holdout durante a
-seleção. O holdout é rejeitado se contiver qualquer cenário diferente daquele
-congelado.
+o hash do cenário, a execução compatível e a ausência de holdout durante a
+seleção. Em v2.1, também confirma que os cenários comparados partiram do mesmo
+agente, seed, candidato, relevância, estado e hash de trajetória. O holdout é
+rejeitado se contiver qualquer cenário diferente daquele congelado.
 
 `--selected-scenario` existe somente para inspeção programática de artefatos
 intermediários. Ele não substitui a seleção congelada ao gerar evidência para o
@@ -76,10 +78,10 @@ Depois de finalizar a matriz v2 e congelar a seleção, execute:
 
 ```bash
 .venv/bin/python -m cinebot_ml.analysis.v2_analysis \
-  --manifest results/v2/raw/<matrix_id>/execution.manifest.json \
-  --selection results/v2/reports/<selection_id>/selection.json \
+  --manifest results/v2_1/revision_2/manifests/executions/<matrix_id>/execution.manifest.json \
+  --selection results/v2_1/revision_2/reports/validation/<selection_id>/selection.json \
   --v1-manifest results/raw/official_v1_1/2942e51456add29e4c999307/experiment.manifest.json \
-  --output-dir results/v2/reports/<matrix_id>/analysis
+  --output-dir results/v2_1/revision_2/reports/<matrix_id>/analysis
 ```
 
 O destino deve ser novo. A escrita é atômica e recusa sobrescrever resultados.

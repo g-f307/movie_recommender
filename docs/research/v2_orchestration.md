@@ -28,9 +28,10 @@ consumo da análise v2; ela preserva os hashes e a origem de cada célula.
 ```
 
 Para executar a família corrigida v2.1, acrescente
-`--protocol protocol-v2.1` a todas as etapas. Ela usa exclusivamente
-`results/v2_1/`; não mistura, substitui ou torna válida a execução diagnóstica
-v2.0.
+`--protocol protocol-v2.1` a todas as etapas. A revisão operacional 2.1.1 usa
+exclusivamente `results/v2_1/revision_2/`; não mistura, substitui ou torna
+válida a execução diagnóstica v2.0 nem a tentativa v2.1 anterior que foi
+bloqueada antes do congelamento.
 
 Os comandos `validation` e `holdout` materializam unidades e executam a matriz
 inteira por padrão. Para um teste controlado, informe o mesmo recorte em todas
@@ -38,8 +39,9 @@ as etapas, por exemplo `--condition C0 --profile P0 --persona consistent
 --seed 42 --k 5`. Não misture recortes entre validation, congelamento e
 holdout: isso altera a identidade da matriz e a finalização recusará o fluxo.
 
-No início de `validation`, o projeto gera
-`results/v2/manifests/splits/movie_id_split.json` a partir de
+No início de `validation`, o projeto gera o manifesto de split sob a raiz da
+execução ativa — em v2.1, por exemplo,
+`results/v2_1/revision_2/manifests/splits/movie_id_split.json` — a partir de
 `datasets/movie_preferences.csv`, usando seed 42 e o protocolo v2. O manifesto
 inclui a identidade e o hash da execução e não reutiliza o split legado. Essa
 etapa pode demorar com o dataset completo.
@@ -49,7 +51,9 @@ etapa pode demorar com o dataset completo.
 - `holdout` recusa qualquer chamada sem `selection.json` e lock compatíveis;
 - falhas, exclusões e métricas ausentes da validation são gravadas em
   `validation_observations.jsonl` e bloqueiam o congelamento;
-- a seleção verifica os sete cenários S0–S6 e exige pares compatíveis;
+- a seleção verifica os sete cenários S0–S6 e exige que cada exposição tenha
+  agente, seed, candidatos, relevâncias, versão de estado e hash de trajetória
+  compatíveis;
 - auditoria confirma completude, hashes, pareamento, método, partição e
   proveniência da execução antes da finalização; e
 - `execution.manifest.json` não pode ser sobrescrito e é aceito por
