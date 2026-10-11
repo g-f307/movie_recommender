@@ -10,6 +10,8 @@ from cinebot_ml.analysis.v2_analysis import (
     write_v2_outputs,
 )
 from cinebot_ml.experiments.policy_sensitivity import (
+    DEFAULT_V2_1_POLICY_SENSITIVITY_CONFIG_PATH,
+    DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
     freeze_validation_selection,
     load_policy_sensitivity_config,
     select_validation_scenario,
@@ -126,6 +128,67 @@ def write_v2_execution(root: Path, *, include_holdout=True, mixed_execution=Fals
 
 
 class V2AnalysisTests(unittest.TestCase):
+    def test_analisa_execucao_v2_1_com_hash_de_trajetoria_pareado(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manifest_path = write_v2_execution(Path(temporary))
+            root = manifest_path.parent
+            matrix_path = root / "matrix.manifest.json"
+            matrix = json.loads(matrix_path.read_text(encoding="utf-8"))
+            matrix["execution_id"] = "execution-v2.1"
+            for cell in matrix["cells"]:
+                cell["execution_id"] = "execution-v2.1"
+            matrix_path.write_text(json.dumps(matrix, sort_keys=True), encoding="utf-8")
+            hashes = {}
+            for path in (root / "cells").glob("*.json"):
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                payload["cell"]["execution_id"] = "execution-v2.1"
+                payload["result"]["individual"]["exposure_policy"] = "shared-seeded-v2.1"
+                payload["result"]["trajectory_sha256"] = "a" * 64
+                path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+                hashes[path.stem] = _digest(path)
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["execution"].update({
+                "id": "execution-v2.1",
+                "version": "2.1.0",
+                "protocol_version": "protocol-v2.1",
+                "exposure_policy": "shared-seeded-v2.1",
+            })
+            manifest["matrix"]["manifest_sha256"] = _digest(matrix_path)
+            manifest["cells_sha256"] = hashes
+            manifest_path.write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
+
+            policy = load_policy_sensitivity_config(
+                DEFAULT_V2_1_POLICY_SENSITIVITY_CONFIG_PATH,
+                schema_path=DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
+            )
+            selection_path = root / "selection.json"
+            freeze_validation_selection(
+                select_validation_scenario(
+                    policy,
+                    [
+                        {
+                            "scenario_id": item.scenario_id,
+                            "partition": "validation",
+                            "comparison_id": "selection-agent",
+                            "agent_id": "selection-agent",
+                            "seed": 42,
+                            "candidate_set_id": "selection-candidates",
+                            "ndcg_at_5": 0.8 if item.scenario_id == "S1" else 0.4,
+                            "status": "evaluated",
+                        }
+                        for item in policy.scenarios
+                    ],
+                ),
+                selection_path,
+            )
+
+            report, pairs, _ = analyze_v2_execution(
+                manifest_path, selection_path=selection_path, bootstrap_resamples=100
+            )
+
+        self.assertEqual(report["execution"]["id"], "execution-v2.1")
+        self.assertTrue(all(row["trajectory_sha256"] == "a" * 64 for row in pairs))
+
     def test_le_selecao_congelada_antes_de_analisar_o_holdout(self):
         policy = load_policy_sensitivity_config()
         observations = [

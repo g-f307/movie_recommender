@@ -171,3 +171,70 @@ def audit_closed_loop_trajectory(
         "observed_events": len(result.steps),
         "failures": failures,
     }
+
+
+def audit_shared_exposure_trajectory(
+    trajectory: Mapping[str, Any],
+    config: ClosedLoopExposureConfig,
+) -> dict[str, Any]:
+    """Confere a trajetória v2.1 comum antes de derivar B4 e B5."""
+    failures: list[dict[str, Any]] = []
+    if config.exposure_policy != "shared-seeded-v2.1":
+        failures.append({"reason": "unexpected_exposure_policy"})
+    if trajectory.get("exposure_policy") != config.exposure_policy:
+        failures.append({"reason": "exposure_policy_mismatch"})
+    if not trajectory.get("comparison_id"):
+        failures.append({"reason": "comparison_id_missing"})
+    if "method" in trajectory:
+        failures.append({"reason": "method_dependent_trajectory"})
+    target = config.events_for(str(trajectory.get("condition", "")))
+    steps = trajectory.get("steps")
+    if not isinstance(steps, list):
+        failures.append({"reason": "steps_missing"})
+        steps = []
+    if trajectory.get("target_events") != target:
+        failures.append({"reason": "target_events_mismatch"})
+    if trajectory.get("status") == "completed" and len(steps) != target:
+        failures.append({"reason": "incomplete_completed_trajectory"})
+    if trajectory.get("status") not in {"completed", config.exhaustion_status}:
+        failures.append({"reason": "invalid_trajectory_status"})
+
+    seen: set[Any] = set()
+    prior_event_ids: list[str] = []
+    for index, step in enumerate(steps):
+        if not isinstance(step, Mapping):
+            failures.append({"step": index, "reason": "invalid_step"})
+            continue
+        feedback = step.get("feedback_event", {})
+        candidates = step.get("candidate_movie_ids", [])
+        movie_id = step.get("exposed_movie_id")
+        if step.get("interaction") != index:
+            failures.append({"step": index, "reason": "sequence_mismatch"})
+        if not step.get("candidate_set_id") or not isinstance(candidates, list):
+            failures.append({"step": index, "reason": "candidate_set_missing"})
+        elif movie_id not in candidates:
+            failures.append({"step": index, "reason": "exposure_not_eligible"})
+        if movie_id in seen:
+            failures.append({"step": index, "reason": "repeated_exposure"})
+        seen.add(movie_id)
+        if not isinstance(feedback, Mapping) or feedback.get("movie_id") != movie_id:
+            failures.append({"step": index, "reason": "feedback_not_from_shared_exposure"})
+        if feedback.get("sequence") != index + 1:
+            failures.append({"step": index, "reason": "feedback_sequence_mismatch"})
+        input_history = step.get("input_snapshot", {}).get("state", {}).get("history", [])
+        output_history = step.get("output_snapshot", {}).get("state", {}).get("history", [])
+        if [event.get("event_id") for event in input_history] != prior_event_ids:
+            failures.append({"step": index, "reason": "input_history_mismatch"})
+        if not output_history or output_history[-1].get("event_id") != feedback.get("event_id"):
+            failures.append({"step": index, "reason": "update_missing_feedback"})
+        prior_event_ids.append(str(feedback.get("event_id")))
+    final_snapshot = trajectory.get("final_snapshot", {})
+    if steps and final_snapshot != steps[-1].get("output_snapshot"):
+        failures.append({"reason": "final_snapshot_mismatch"})
+    return {
+        "complete": not failures,
+        "status": trajectory.get("status"),
+        "target_events": target,
+        "observed_events": len(steps),
+        "failures": failures,
+    }

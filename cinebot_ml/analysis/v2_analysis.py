@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from cinebot_ml.experiments.policy_sensitivity import (
+    DEFAULT_V2_1_POLICY_SENSITIVITY_CONFIG_PATH,
+    DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
     load_frozen_validation_selection,
     load_policy_sensitivity_config,
 )
@@ -56,12 +58,14 @@ class V2MetricRecord:
     k: int
     agent_id: str
     candidate_set_id: str
+    relevance_id: str
     partition: str
     scenario_id: str
     scenario_hash: str
     profile_noise_level: str
     exposure_policy: str
     trajectory_status: str
+    trajectory_sha256: str | None
     status: str
     metric: float | None
 
@@ -71,8 +75,9 @@ _CELL_FIELDS = (
 )
 _PAIR_FIELDS = (
     "execution_id", "execution_config_sha256", "partition", "agent_id", "persona",
-    "seed", "condition", "profile", "run", "k", "candidate_set_id", "scenario_id",
+    "seed", "condition", "profile", "run", "k", "candidate_set_id", "relevance_id", "scenario_id",
     "scenario_hash", "profile_noise_level", "exposure_policy", "trajectory_status",
+    "trajectory_sha256",
 )
 _DIMENSIONS = (
     "scenario_id", "condition", "profile", "persona", "seed", "profile_noise_level",
@@ -88,12 +93,13 @@ def load_v2_records(manifest_path: Path) -> tuple[dict[str, Any], list[V2MetricR
         raise V2AnalysisError("Manifesto não representa uma execução v2 completa.")
     execution_id = execution.get("id")
     config_sha = execution.get("config_sha256")
-    if not isinstance(execution_id, str) or not execution_id.endswith("-v2"):
+    if not isinstance(execution_id, str) or execution_id not in {"execution-v2", "execution-v2.1"}:
         raise V2AnalysisError("Manifesto não possui identidade de execução v2.")
     if not isinstance(config_sha, str) or len(config_sha) != 64:
         raise V2AnalysisError("Manifesto não possui hash de configuração v2 válido.")
-    if execution.get("exposure_policy") != "closed-loop-v2":
-        raise V2AnalysisError("A análise v2 exige exposição em ciclo fechado.")
+    exposure_policy = execution.get("exposure_policy")
+    if exposure_policy not in {"closed-loop-v2", "shared-seeded-v2.1"}:
+        raise V2AnalysisError("A análise v2 exige uma política de exposição reconhecida.")
 
     matrix_info = manifest.get("matrix")
     if not isinstance(matrix_info, Mapping) or not isinstance(matrix_info.get("matrix_id"), str):
@@ -152,6 +158,11 @@ def load_v2_records(manifest_path: Path) -> tuple[dict[str, Any], list[V2MetricR
             raise V2AnalysisError(f"Célula v2 {cell_id} não declara o cenário de política.")
         raw_metric = individual.get("metrics", {}).get("ndcg_at_k")
         metric = float(raw_metric) if isinstance(raw_metric, (int, float)) else None
+        trajectory_sha256 = payload.get("result", {}).get("trajectory_sha256")
+        if exposure_policy == "shared-seeded-v2.1" and (
+            not isinstance(trajectory_sha256, str) or len(trajectory_sha256) != 64
+        ):
+            raise V2AnalysisError(f"Célula v2.1 {cell_id} não declara hash de trajetória válido.")
         records.append(V2MetricRecord(
             cell_id=cell_id,
             comparison_id=str(cell.get("comparison_id", "")),
@@ -166,12 +177,14 @@ def load_v2_records(manifest_path: Path) -> tuple[dict[str, Any], list[V2MetricR
             k=int(cell.get("k")),
             agent_id=str(individual.get("agent_id", "")),
             candidate_set_id=str(individual.get("candidate_set_id", "")),
+            relevance_id=str(individual.get("relevance_id", "")),
             partition=str(partition),
             scenario_id=scenario_id,
             scenario_hash=scenario_hash,
             profile_noise_level=str(individual.get("profile_noise_level", "")),
             exposure_policy=str(individual.get("exposure_policy", "")),
             trajectory_status=str(individual.get("trajectory_status", "")),
+            trajectory_sha256=str(trajectory_sha256) if trajectory_sha256 is not None else None,
             status=str(individual.get("evaluation_status", "")),
             metric=metric,
         ))
@@ -203,7 +216,7 @@ def _paired_rows(
         b4, b5 = pair["B4"], pair["B5"]
         if tuple(getattr(b4, field) for field in _PAIR_FIELDS) != tuple(getattr(b5, field) for field in _PAIR_FIELDS):
             raise V2AnalysisError(f"Pareamento incompatível em {comparison_id}.")
-        if b4.exposure_policy != "closed-loop-v2" or b4.trajectory_status not in {"completed", "exhausted"}:
+        if b4.exposure_policy not in {"closed-loop-v2", "shared-seeded-v2.1"} or b4.trajectory_status not in {"completed", "exhausted"}:
             raise V2AnalysisError(f"Trajetória incompatível em {comparison_id}.")
         if partition == "holdout":
             if not selected_scenario_id:
@@ -225,9 +238,11 @@ def _paired_rows(
             "run": b4.run,
             "k": b4.k,
             "candidate_set_id": b4.candidate_set_id,
+            "relevance_id": b4.relevance_id,
             "profile_noise_level": b4.profile_noise_level,
             "exposure_policy": b4.exposure_policy,
             "trajectory_status": b4.trajectory_status,
+            "trajectory_sha256": b4.trajectory_sha256,
             "b4_ndcg_at_5": float(b4.metric),
             "b5_ndcg_at_5": float(b5.metric),
             "difference_b5_minus_b4": float(b5.metric) - float(b4.metric),
@@ -349,10 +364,18 @@ def analyze_v2_execution(
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
     """Analisa B5 × B4 por partição e pressuposto, mantendo v1.1 separado."""
     manifest_path = Path(manifest_path).resolve()
+    manifest, records = load_v2_records(manifest_path)
     selected_scenario_hash = None
     locked_selection = False
     if selection_path is not None:
-        config = load_policy_sensitivity_config()
+        config = (
+            load_policy_sensitivity_config(
+                DEFAULT_V2_1_POLICY_SENSITIVITY_CONFIG_PATH,
+                schema_path=DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
+            )
+            if manifest["execution"].get("protocol_version") == "protocol-v2.1"
+            else load_policy_sensitivity_config()
+        )
         try:
             selection = load_frozen_validation_selection(config, Path(selection_path))
         except Exception as exc:
@@ -363,7 +386,6 @@ def analyze_v2_execution(
         selected_scenario_id = frozen_scenario_id
         selected_scenario_hash = str(selection["selected_scenario_hash"])
         locked_selection = True
-    manifest, records = load_v2_records(manifest_path)
     pairs, accounting = _paired_rows(
         records,
         selected_scenario_id=selected_scenario_id,

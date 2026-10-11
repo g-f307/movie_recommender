@@ -20,12 +20,10 @@ from cinebot_ml.experiments.policy_sensitivity import (
     write_validation_observations,
 )
 from cinebot_ml.experiments.v2_config import (
-    DEFAULT_V2_HOLDOUT_CONFIG_PATH,
-    DEFAULT_V2_VALIDATION_CONFIG_PATH,
     V2ExperimentConfigError,
     V2ExperimentPlan,
     build_v2_experiment_matrix,
-    load_v2_experiment_plan,
+    load_v2_experiment_plan_for_protocol,
 )
 from cinebot_ml.experiments.v2_cell_runner import build_v2_runner, prepare_v2_units
 from cinebot_ml.experimental_splits import (
@@ -266,6 +264,7 @@ def finalize_v2_execution(
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("validation", "freeze-selection", "holdout", "audit", "finalize"))
+    parser.add_argument("--protocol", choices=("protocol-v2.0", "protocol-v2.1"), default="protocol-v2.0")
     parser.add_argument("--selection", type=Path)
     parser.add_argument("--condition", action="append")
     parser.add_argument("--profile", action="append")
@@ -280,7 +279,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "seeds": args.seed,
         "k_values": args.k,
     }
-    validation = load_v2_experiment_plan(DEFAULT_V2_VALIDATION_CONFIG_PATH)
+    validation = load_v2_experiment_plan_for_protocol("validation", args.protocol)
     try:
         if args.command == "validation":
             matrix = build_v2_experiment_matrix(validation, **filters)
@@ -297,7 +296,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         if args.selection is None:
             raise V2OrchestrationError("--selection é obrigatório após a validation congelada.")
-        holdout = load_v2_experiment_plan(DEFAULT_V2_HOLDOUT_CONFIG_PATH)
+        holdout = load_v2_experiment_plan_for_protocol("holdout", args.protocol)
         holdout_matrix = build_v2_experiment_matrix(holdout, selection_path=args.selection, **filters)
         if args.command == "holdout":
             prepare_v2_units(holdout_matrix, holdout.execution)

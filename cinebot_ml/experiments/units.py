@@ -9,6 +9,7 @@ import random
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any, Mapping, Sequence
 
 from cinebot_ml.config import DEFAULT_DATA_PATH, PROJECT_ROOT
 from cinebot_ml.dataset import load_catalog
@@ -18,7 +19,9 @@ from cinebot_ml.experiments.cold_start import profile_payload
 from cinebot_ml.experiments.closed_loop import (
     ClosedLoopExposureConfig,
     audit_closed_loop_trajectory,
+    audit_shared_exposure_trajectory,
     load_closed_loop_exposure_config,
+    DEFAULT_V2_1_CLOSED_LOOP_SCHEMA_PATH,
 )
 from cinebot_ml.experiments.execution import (
     ExecutionSpec,
@@ -326,6 +329,206 @@ def _closed_loop_unit(
     return result
 
 
+def _shared_time(config: ClosedLoopExposureConfig, interaction: int) -> str:
+    value = EPOCH + timedelta(seconds=config.clock_step_seconds * interaction)
+    return value.isoformat().replace("+00:00", "Z")
+
+
+def _shared_order(comparison_id: str, movie_ids: Sequence[Any]) -> tuple[Any, ...]:
+    """Ordena IDs canônicos por uma chave determinística do par, nunca do método."""
+    def key(movie_id: Any) -> tuple[str, str]:
+        encoded = json.dumps(movie_id, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        digest = hashlib.sha256(f"{comparison_id}:{encoded}".encode("utf-8")).hexdigest()
+        return digest, encoded
+
+    return tuple(sorted(movie_ids, key=key))
+
+
+def _shared_request(
+    cell: ExperimentCell,
+    state: StateSnapshot,
+    profile_data: Mapping[str, Any],
+    timestamp: str,
+    protocol_version: str,
+) -> RecommendationRequest:
+    return RecommendationRequest(
+        "movie-recommender-acm-sac-2027",
+        protocol_version,
+        "B0",
+        "1.0",
+        cell.condition,
+        cell.profile,
+        cell.seed,
+        timestamp,
+        (),
+        cell.k,
+        unit_id=state.state.subject_id,
+        session_id=f"shared-{cell.comparison_id}",
+        profile_data=dict(profile_data),
+        history=tuple(event.to_dict() for event in state.state.history),
+    )
+
+
+def _shared_exposure_pair(
+    cells: Sequence[ExperimentCell],
+    catalog: list[dict],
+    catalog_sha256: str,
+    *,
+    catalog_path: str,
+    exposure_config: ClosedLoopExposureConfig,
+    profile_observation_config: ProfileObservationConfig | None,
+) -> dict[str, Any]:
+    """Materializa uma única trajetória method-independent para um par B4/B5."""
+    methods = {cell.method: cell for cell in cells}
+    if set(methods) != set(exposure_config.paired_methods):
+        raise ExecutionSpecError("A trajetória compartilhada exige exatamente B4 e B5.")
+    comparison_ids = {cell.comparison_id for cell in cells}
+    if len(comparison_ids) != 1:
+        raise ExecutionSpecError("B4 e B5 devem pertencer ao mesmo comparison_id.")
+    comparison_id = comparison_ids.pop()
+    reference = methods["B4"]
+    safe_catalog = _safe_catalog(catalog)
+    agent = build_agent(reference.persona, reference.seed, safe_catalog)
+    declared_preference = (
+        build_declared_preference(agent, profile_observation_config)
+        if profile_observation_config is not None
+        else None
+    )
+    profile_data = profile_payload(declared_preference or agent, reference.profile)
+    initial = StateSnapshot(
+        UserState(agent.agent_id, "synthetic", _shared_time(exposure_config, 0), initial_profile=profile_data),
+        provenance=(
+            profile_observation_manifest(agent, declared_preference)
+            if declared_preference is not None
+            else {}
+        ),
+    )
+    state = initial
+    target = exposure_config.events_for(reference.condition)
+    order: tuple[Any, ...] | None = None
+    steps: list[dict[str, Any]] = []
+    status = "completed"
+    updater = ProfileUpdater()
+    for interaction in range(target):
+        timestamp = _shared_time(exposure_config, interaction + 1)
+        request = _shared_request(reference, state, profile_data, timestamp, exposure_config.protocol_version)
+        candidates = build_candidate_set(
+            safe_catalog,
+            request,
+            catalog_path=catalog_path,
+            catalog_sha256=catalog_sha256,
+        )
+        order = order or _shared_order(comparison_id, candidates.movie_ids)
+        eligible = set(candidates.movie_ids)
+        movie_id = next((item for item in order if item in eligible), None)
+        if movie_id is None:
+            status = exposure_config.exhaustion_status
+            break
+        movie = next(item for item in candidates.movies if item["id"] == movie_id)
+        judgment = agent.evaluate(movie, interaction)
+        event = FeedbackEvent(
+            event_id=f"shared-{comparison_id}-{interaction + 1:04d}",
+            movie_id=movie_id,
+            feedback=judgment.feedback,
+            timestamp=timestamp,
+            sequence=interaction + 1,
+            source="synthetic_user",
+            metadata={"graded_relevance": judgment.graded_relevance},
+        )
+        next_state = updater.update(state, event, movie, logical_timestamp=timestamp)
+        steps.append({
+            "interaction": interaction,
+            "logical_timestamp": timestamp,
+            "candidate_set_id": candidates.candidate_set_id,
+            "candidate_movie_ids": list(candidates.movie_ids),
+            "exposed_movie_id": movie_id,
+            "feedback_event": event.to_dict(),
+            "input_snapshot": state.to_dict(),
+            "output_snapshot": next_state.to_dict(),
+        })
+        state = next_state
+
+    final_timestamp = _shared_time(exposure_config, len(steps) + 1)
+    final_request = _shared_request(
+        reference, state, profile_data, final_timestamp, exposure_config.protocol_version
+    )
+    final_candidates = build_candidate_set(
+        safe_catalog,
+        final_request,
+        catalog_path=catalog_path,
+        catalog_sha256=catalog_sha256,
+    )
+    trajectory = {
+        "schema_version": "1.0",
+        "exposure_policy": exposure_config.exposure_policy,
+        "comparison_id": comparison_id,
+        "condition": reference.condition,
+        "target_events": target,
+        "status": status,
+        "steps": steps,
+        "initial_snapshot": initial.to_dict(),
+        "final_snapshot": state.to_dict(),
+        "final_candidate_set_id": final_candidates.candidate_set_id,
+    }
+    audit = audit_shared_exposure_trajectory(trajectory, exposure_config)
+    if not audit["complete"]:
+        raise ExecutionSpecError(f"Auditoria compartilhada falhou: {audit['failures'][0]['reason']}")
+    trajectory_sha256 = hashlib.sha256(
+        json.dumps(trajectory, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    judgments = [
+        {
+            "movie_id": movie["id"],
+            "value": agent.evaluate(movie, len(steps)).graded_relevance,
+        }
+        for movie in final_candidates.movies
+    ]
+    pairing_key = {
+        "agent_id": agent.agent_id,
+        "persona": reference.persona,
+        "seed": reference.seed,
+        "condition": reference.condition,
+        "profile": reference.profile,
+        "k": reference.k,
+        "protocol_version": exposure_config.protocol_version,
+    }
+    common_unit = {
+        "request": final_candidates.attach_to_request(final_request).to_dict(),
+        "relevance": judgments,
+        "complete": status == "completed",
+        "initial_snapshot": initial.to_dict(),
+        "state_snapshot": state.to_dict(),
+        "agent_id": agent.agent_id,
+        "persona": reference.persona,
+        "agent_version": agent.config.version,
+        "simulation_id": hashlib.sha256(comparison_id.encode("utf-8")).hexdigest()[:24],
+        "interaction": len(steps),
+        "state_version": state.state.version,
+        "trajectory_sha256": trajectory_sha256,
+    }
+    result = {
+        "exposure_policy": exposure_config.exposure_policy,
+        "exposure_manifest": exposure_config.manifest(),
+        "pairing": {
+            "pairing_id": hashlib.sha256(
+                json.dumps(pairing_key, sort_keys=True).encode("utf-8")
+            ).hexdigest()[:24],
+            "comparison_id": comparison_id,
+            "key": pairing_key,
+            "cell_ids": {method: cell.cell_id for method, cell in methods.items()},
+        },
+        "trajectory": trajectory,
+        "trajectory_sha256": trajectory_sha256,
+        "trajectory_audit": audit,
+        "relevance_source": "synthetic_user",
+        "relevance_version": "shared-seeded-v2.1",
+        "method_units": {method: {**common_unit, "method": method} for method in sorted(methods)},
+    }
+    if declared_preference is not None:
+        result["profile_observation"] = profile_observation_manifest(agent, declared_preference)
+    return result
+
+
 def write_units(
     matrix: ExperimentMatrix,
     catalog: list[dict],
@@ -348,26 +551,48 @@ def write_units(
             profile_observation_config = load_profile_observation_config(
                 execution_spec.resolve_path("profile_observation_config")
             )
-        if exposure_policy == "closed-loop-v2":
+        if exposure_policy in {"closed-loop-v2", "shared-seeded-v2.1"}:
             closed_loop_config = (
                 load_closed_loop_exposure_config(
-                    execution_spec.resolve_path("closed_loop_config")
+                    execution_spec.resolve_path("closed_loop_config"),
+                    schema_path=(
+                        DEFAULT_V2_1_CLOSED_LOOP_SCHEMA_PATH
+                        if execution_spec.protocol_version == "protocol-v2.1"
+                        else PROJECT_ROOT / "configs/experiments/closed_loop_v2.schema.json"
+                    ),
                 )
                 if execution_spec.closed_loop_config is not None
                 else load_closed_loop_exposure_config()
             )
         elif exposure_policy != "neutral-exposure-v1":
             raise ExecutionSpecError(f"Política de exposição desconhecida: {exposure_policy}")
-    unique = (
-        {cell.cell_id: cell for cell in matrix.cells}
-        if exposure_policy == "closed-loop-v2"
-        else {cell.comparison_id: cell for cell in matrix.cells}
-    )
-    for unit_id, cell in sorted(unique.items()):
+    if exposure_policy == "shared-seeded-v2.1":
+        groups: dict[str, list[ExperimentCell]] = defaultdict(list)
+        for cell in matrix.cells:
+            groups[cell.comparison_id].append(cell)
+        unique: Mapping[str, Any] = {
+            comparison_id: tuple(sorted(cells)) for comparison_id, cells in groups.items()
+        }
+    else:
+        unique = (
+            {cell.cell_id: cell for cell in matrix.cells}
+            if exposure_policy == "closed-loop-v2"
+            else {cell.comparison_id: cell for cell in matrix.cells}
+        )
+    for unit_id, item in sorted(unique.items()):
         path = output / f"{unit_id}.json"
         payload = (
-            _closed_loop_unit(
-                cell,
+            _shared_exposure_pair(
+                item,
+                catalog,
+                catalog_sha256,
+                catalog_path=catalog_path,
+                exposure_config=closed_loop_config,
+                profile_observation_config=profile_observation_config,
+            )
+            if exposure_policy == "shared-seeded-v2.1"
+            else _closed_loop_unit(
+                item,
                 catalog,
                 catalog_sha256,
                 catalog_path=catalog_path,
@@ -376,7 +601,7 @@ def write_units(
             )
             if closed_loop_config is not None
             else _unit(
-                cell,
+                item,
                 catalog,
                 catalog_sha256,
                 catalog_path=catalog_path,

@@ -23,6 +23,7 @@ from cinebot_ml.experiments.v2_config import (
     DEFAULT_V2_VALIDATION_CONFIG_PATH,
     V2ExperimentConfigError,
     build_v2_experiment_matrix,
+    load_v2_experiment_plan_for_protocol,
     load_v2_experiment_plan,
 )
 from cinebot_ml.experiments.execution import (
@@ -33,6 +34,14 @@ from cinebot_ml.experiments.policy_sensitivity import DEFAULT_V2_1_POLICY_SENSIT
 
 
 class V2ExperimentConfigTests(unittest.TestCase):
+    def test_selector_de_protocolo_carrega_a_familia_v2_1_sem_reutilizar_v2_0(self):
+        validation = load_v2_experiment_plan_for_protocol("validation", "protocol-v2.1")
+        holdout = load_v2_experiment_plan_for_protocol("holdout", "protocol-v2.1")
+
+        self.assertEqual(validation.execution.execution_id, "execution-v2.1")
+        self.assertEqual(validation.protocol_version, "protocol-v2.1")
+        self.assertEqual(holdout.partition, "holdout")
+
     def test_v2_1_isolates_shared_exposure_outputs_and_identities(self):
         validation = load_v2_experiment_plan(
             DEFAULT_V2_1_VALIDATION_CONFIG_PATH,
