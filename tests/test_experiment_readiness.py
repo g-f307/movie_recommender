@@ -89,7 +89,7 @@ class ExperimentReadinessTests(unittest.TestCase):
         checks = run_readiness("ci")
         config_check = next(check for check in checks if check.name == "configs")
 
-        self.assertEqual(config_check.detail, "20 configurações, schemas e locks validados")
+        self.assertEqual(config_check.detail, "22 configurações, schemas e locks validados")
 
     def test_execucao_sem_env_real(self):
         with patch.dict(os.environ, {}, clear=True):
