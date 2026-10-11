@@ -132,10 +132,20 @@ def run_v2_cell(
     if len(report.individual) != 1:
         raise MatrixValidationError("O runner v2 não produziu uma avaliação individual.")
     individual = report.individual[0]
+    individual_payload = individual.to_dict()
+    individual_payload.update({
+        "run": cell.run,
+        "partition": cell.partition,
+        "policy_scenario_id": cell.policy_scenario_id,
+        "policy_scenario_hash": cell.policy_scenario_hash,
+        "profile_noise_level": "configured-v2",
+        "exposure_policy": payload["exposure_policy"],
+        "trajectory_status": "completed",
+    })
     return {
         "benchmark_id": report.benchmark_id,
         "benchmark_manifest": report.manifest,
-        "individual": individual.to_dict(),
+        "individual": individual_payload,
         "execution_id": cell.execution_id,
         "execution_config_sha256": cell.execution_config_sha256,
         "partition": cell.partition,

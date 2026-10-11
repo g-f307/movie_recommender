@@ -193,6 +193,16 @@ def validate_matrix_execution(matrix: Any, spec: ExecutionSpec) -> None:
         raise ExecutionSpecError("O hash da matriz diverge da configuração de execução.")
 
 
+def validate_matrix_output(matrix: Any, output: Path, spec: ExecutionSpec) -> None:
+    """Aceita somente a raiz v2 ou a subárvore declarada da partição."""
+    validate_matrix_execution(matrix, spec)
+    raw = spec.resolve_path("raw")
+    partition = getattr(matrix, "partition", None)
+    expected = raw / partition if partition in {"validation", "holdout"} else raw
+    if output.resolve() != expected.resolve():
+        raise ExecutionSpecError("A saída da matriz diverge da partição declarada na execução.")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Valida, prepara ou audita uma execução v2 sem tocar na v1.1."""
     parser = argparse.ArgumentParser(description=__doc__)
