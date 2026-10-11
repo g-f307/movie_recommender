@@ -20,6 +20,7 @@ from cinebot_ml.experiments.execution import (
     ExecutionSpecError,
     load_execution_spec,
     validate_matrix_execution,
+    validate_matrix_output,
 )
 from cinebot_ml.simulation.agents import DEFAULT_AGENT_CONFIG_PATH, load_agent_config
 
@@ -275,9 +276,7 @@ def execute_matrix(
     execution_spec: ExecutionSpec | None = None,
 ) -> MatrixExecutionReport:
     if execution_spec is not None:
-        validate_matrix_execution(matrix, execution_spec)
-        if output.resolve() != execution_spec.resolve_path("raw"):
-            raise ExecutionSpecError("A saída da matriz v2 deve corresponder a paths.raw da execução.")
+        validate_matrix_output(matrix, output, execution_spec)
     root = output / matrix.matrix_id
     manifest_path = root / "matrix.manifest.json"
     manifest = matrix.to_manifest()
