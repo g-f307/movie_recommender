@@ -85,3 +85,9 @@ identidades e artefatos v1.1. Com a especificação v2, a geração de unidades
 usa exclusivamente `closed-loop-v2`, preserva uma unidade por método e associa
 B4 e B5 por uma chave de pareamento compartilhada. A política
 `neutral-exposure-v1` continua restrita ao fluxo legado.
+
+Após o congelamento da seleção paramétrica, a análise v2 é executada por
+`cinebot_ml.analysis.v2_analysis`. Ela exige o manifesto selado, mantém
+`validation` e `holdout` separados e pode reportar v1.1 somente como uma
+comparação de desenho, sem combinar estatisticamente as duas execuções. Veja
+[`v2_analysis.md`](v2_analysis.md) para o contrato de inferência e de artefatos.

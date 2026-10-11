@@ -17,6 +17,7 @@
 - [`research/execution_v2.md`](research/execution_v2.md): contrato, isolamento de diretórios e comandos da infraestrutura complementar.
 - [`research/closed_loop_exposure_v2.md`](research/closed_loop_exposure_v2.md): política causal v2, pareamento B4/B5 e auditoria de trajetórias de feedback.
 - [`research/policy_sensitivity_v2.md`](research/policy_sensitivity_v2.md): cenários v2, seleção em validação e congelamento pré-holdout de parâmetros B5.
+- [`research/v2_analysis.md`](research/v2_analysis.md): validação, inferência pareada e artefatos do estudo complementar v2.
 - [`research/cold_start_study.md`](research/cold_start_study.md): projeções P0–P5, pareamento, execução e saídas do estudo de cold start.
 - [`research/convergence_study.md`](research/convergence_study.md): checkpoints C0–C5, ganhos, valor marginal e curvas longitudinais.
 - [`research/ablation_study.md`](research/ablation_study.md): variantes A0–A6, componentes ativos e execução pareada.
