@@ -13,11 +13,17 @@ import yaml
 from jsonschema import Draft202012Validator
 
 from cinebot_ml.config import PROJECT_ROOT
-from cinebot_ml.experiments.execution import ExecutionSpec, load_execution_spec
+from cinebot_ml.experiments.execution import (
+    DEFAULT_V2_1_EXECUTION_SCHEMA_PATH,
+    DEFAULT_V2_1_EXECUTION_SPEC_PATH,
+    ExecutionSpec,
+    load_execution_spec,
+)
 from cinebot_ml.experiments.matrix import ExperimentCell, ExperimentMatrix, MatrixValidationError
 from cinebot_ml.experiments.policy_sensitivity import (
     PolicySensitivityConfig,
     PolicySensitivityError,
+    DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
     load_frozen_validation_selection,
     load_policy_sensitivity_config,
 )
@@ -184,6 +190,38 @@ def load_v2_experiment_plan(
         matrix_config_sha256=matrix_digest,
         matrix_config=matrix_config,
     )
+
+
+def load_v2_experiment_plan_for_protocol(
+    partition: str,
+    protocol_version: str = "protocol-v2.0",
+) -> V2ExperimentPlan:
+    """Seleciona contratos compatíveis sem misturar as famílias v2.0 e v2.1."""
+    if partition not in {"validation", "holdout"}:
+        raise V2ExperimentConfigError("A partição v2 deve ser validation ou holdout.")
+    if protocol_version == "protocol-v2.0":
+        return load_v2_experiment_plan(
+            DEFAULT_V2_VALIDATION_CONFIG_PATH
+            if partition == "validation"
+            else DEFAULT_V2_HOLDOUT_CONFIG_PATH
+        )
+    if protocol_version == "protocol-v2.1":
+        return load_v2_experiment_plan(
+            DEFAULT_V2_1_VALIDATION_CONFIG_PATH
+            if partition == "validation"
+            else DEFAULT_V2_1_HOLDOUT_CONFIG_PATH,
+            config_schema_path=(
+                DEFAULT_V2_1_VALIDATION_SCHEMA_PATH
+                if partition == "validation"
+                else DEFAULT_V2_1_HOLDOUT_SCHEMA_PATH
+            ),
+            matrix_config_path=DEFAULT_V2_1_MATRIX_CONFIG_PATH,
+            matrix_schema_path=DEFAULT_V2_1_MATRIX_SCHEMA_PATH,
+            execution_spec_path=DEFAULT_V2_1_EXECUTION_SPEC_PATH,
+            execution_schema_path=DEFAULT_V2_1_EXECUTION_SCHEMA_PATH,
+            policy_sensitivity_schema_path=DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
+        )
+    raise V2ExperimentConfigError(f"Protocolo v2 não suportado: {protocol_version}")
 
 
 def build_v2_experiment_matrix(
