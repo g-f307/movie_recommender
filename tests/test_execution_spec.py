@@ -64,6 +64,19 @@ class ExecutionSpecTests(unittest.TestCase):
         self.assertEqual(len(spec.sha256), 64)
         self.assertTrue(all(path.startswith("results/v2/") for path in spec.output_paths.values()))
 
+    def test_configuracao_de_observacao_e_referenciada_sem_virar_saida(self):
+        payload = valid_spec()
+        payload["profile_observation_config"] = "configs/agents/profile_observation_v2.yaml"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            spec = load_execution_spec(self.write_spec(root, payload), project_root=root)
+
+        self.assertEqual(
+            spec.profile_observation_config,
+            "configs/agents/profile_observation_v2.yaml",
+        )
+        self.assertNotIn("profile_observation_config", spec.output_paths)
+
     def test_lock_desatualizado_e_rejeitado_antes_de_criar_artefatos(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

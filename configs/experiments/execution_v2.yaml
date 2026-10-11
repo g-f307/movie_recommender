@@ -1,10 +1,12 @@
 schema_version: "1.0"
 execution:
   id: execution-v2
-  version: "2.0.0"
+  version: "2.1.0"
   protocol_version: protocol-v2.0
   frozen: true
   exposure_policy: closed-loop-v2
+
+profile_observation_config: configs/agents/profile_observation_v2.yaml
 
 paths:
   source_catalog: data/filmes.json

@@ -13,7 +13,12 @@ from cinebot_ml.experiments.cold_start import (
     write_cold_start_report,
 )
 from cinebot_ml.ranking.contracts import RankingResult, rank_scored_candidates
-from cinebot_ml.simulation import SyntheticAgent, TemporalSimulator, build_agent
+from cinebot_ml.simulation import (
+    SyntheticAgent,
+    TemporalSimulator,
+    build_agent,
+    build_declared_preference,
+)
 from cinebot_ml.simulation.agents import LatentPreference
 from tests.test_temporal_simulation import catalog
 
@@ -92,6 +97,31 @@ class ColdStartStudyTests(unittest.TestCase):
         self.assertTrue(all(profile.state.state.version == 0 for profile in profiles[:5]))
         self.assertEqual(profiles[-1].state.state.version, 3)
 
+    def test_perfis_v2_consumem_apenas_observacao_declarada(self):
+        movies = catalog()
+        agent = build_agent("consistent", 42, movies)
+        declared = build_declared_preference(agent)
+        profiles = build_cold_start_profiles(
+            agent, allowed_history(movies, agent), declared_preference=declared
+        )
+
+        p1 = next(profile for profile in profiles if profile.profile == "P1")
+        p5 = next(profile for profile in profiles if profile.profile == "P5")
+        self.assertEqual(p1.declared_profile_id, declared.declared_profile_id)
+        self.assertEqual(p1.profile_source, "declared_profile_v2")
+        self.assertEqual(set(p1.state.state.initial_profile), {"ranked_genres"})
+        self.assertNotIn("preference_id", p5.state.state.initial_profile)
+        self.assertNotIn("latent", p5.state.state.initial_profile)
+        self.assertEqual(
+            p5.state.to_dict()["provenance"]["declared_profile_id"],
+            declared.declared_profile_id,
+        )
+        self.assertIn("latent_preference_id", p5.state.to_dict()["provenance"])
+        self.assertEqual(
+            p5.state.state.initial_profile["preferred_directors"],
+            declared.preferred_directors,
+        )
+
     def test_tentativa_de_reconstrucao_e_bloqueada(self):
         config = load_cold_start_config()
         with self.assertRaisesRegex(ColdStartValidationError, "não autorizada"):
@@ -153,6 +183,27 @@ class ColdStartStudyTests(unittest.TestCase):
         second = run_cold_start_study(movies, agent, **kwargs)
         self.assertEqual(first.study_id, second.study_id)
         self.assertEqual(first.benchmark.benchmark_id, second.benchmark.benchmark_id)
+
+    def test_estudo_v2_registra_origem_e_intensidade_da_observacao(self):
+        movies = catalog()
+        agent = build_agent("consistent", 42, movies)
+        declared = build_declared_preference(agent)
+        report = run_cold_start_study(
+            movies,
+            agent,
+            condition="C1",
+            k=5,
+            methods=("B0", "B1"),
+            official_k_values=(5,),
+            experiment_config_sha256="f" * 64,
+            catalog_sha256="a" * 64,
+            declared_preference=declared,
+        )
+
+        provenance = report.manifest["profile_observation"]
+        self.assertEqual(provenance["declared_profile_id"], declared.declared_profile_id)
+        self.assertEqual(provenance["observation_seed"], agent.seed)
+        self.assertIn("genre_omission", provenance["noise"])
 
 
 if __name__ == "__main__":

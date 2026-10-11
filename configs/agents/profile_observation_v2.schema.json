@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/g-f307/movie_recommender/configs/agents/profile_observation_v2.schema.json",
+  "title": "Observed declared profile for execution v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "frozen", "source", "noise"],
+  "properties": {
+    "version": {"type": "string", "pattern": "^2\\."},
+    "frozen": {"const": true},
+    "source": {"const": "declared_profile_projection_v2"},
+    "noise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "genre_omission",
+        "genre_rank_shuffle",
+        "decade_misclassification",
+        "popularity_misclassification",
+        "director_omission",
+        "keyword_omission"
+      ],
+      "properties": {
+        "genre_omission": {"type": "number", "minimum": 0, "maximum": 1},
+        "genre_rank_shuffle": {"type": "number", "minimum": 0, "maximum": 1},
+        "decade_misclassification": {"type": "number", "minimum": 0, "maximum": 1},
+        "popularity_misclassification": {"type": "number", "minimum": 0, "maximum": 1},
+        "director_omission": {"type": "number", "minimum": 0, "maximum": 1},
+        "keyword_omission": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    }
+  }
+}

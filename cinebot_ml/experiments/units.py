@@ -24,7 +24,14 @@ from cinebot_ml.experiments.matrix import ExperimentCell, ExperimentMatrix, load
 from cinebot_ml.personalization import FeedbackEvent, ProfileUpdater, StateSnapshot, UserState
 from cinebot_ml.ranking.candidates import build_candidate_set
 from cinebot_ml.ranking.contracts import RecommendationRequest
-from cinebot_ml.simulation.agents import build_agent, load_agent_config
+from cinebot_ml.simulation.agents import (
+    ProfileObservationConfig,
+    build_agent,
+    build_declared_preference,
+    load_agent_config,
+    load_profile_observation_config,
+    profile_observation_manifest,
+)
 from cinebot_ml.simulation.temporal import load_simulation_config
 
 
@@ -85,14 +92,31 @@ def _unit(
     *,
     catalog_path: str = "results/derived/test_catalog.json",
     exposure_policy: str = "neutral-exposure-v1",
+    profile_observation_config: ProfileObservationConfig | None = None,
 ) -> dict:
     if exposure_policy != "neutral-exposure-v1":
         raise ExecutionSpecError(
             "A geração de unidades para exposição fechada será implementada na issue #87."
         )
     agent = build_agent(cell.persona, cell.seed, catalog)
-    initial = StateSnapshot(UserState(agent.agent_id, "synthetic", _time(0),
-                                      initial_profile=profile_payload(agent, cell.profile)))
+    declared_preference = (
+        build_declared_preference(agent, profile_observation_config)
+        if profile_observation_config is not None
+        else None
+    )
+    initial = StateSnapshot(
+        UserState(
+            agent.agent_id,
+            "synthetic",
+            _time(0),
+            initial_profile=profile_payload(declared_preference or agent, cell.profile),
+        ),
+        provenance=(
+            profile_observation_manifest(agent, declared_preference)
+            if declared_preference is not None
+            else {}
+        ),
+    )
     state = initial
     exposure = list(catalog)
     random.Random(f"{exposure_policy}:{agent.agent_id}").shuffle(exposure)
@@ -123,7 +147,7 @@ def _unit(
         cell.condition, cell.profile, cell.seed, _time(EVENTS[cell.condition] + 1),
         (), cell.k, unit_id=agent.agent_id,
         session_id=f"neutral-{agent.agent_id}",
-        profile_data=profile_payload(agent, cell.profile),
+        profile_data=profile_payload(declared_preference or agent, cell.profile),
         history=tuple(event.to_dict() for event in state.state.history),
     )
     candidates = build_candidate_set(catalog, request,
@@ -132,7 +156,7 @@ def _unit(
     judgments = [{"movie_id": movie["id"],
                   "value": agent.evaluate(movie, EVENTS[cell.condition]).graded_relevance}
                  for movie in candidates.movies]
-    return {
+    result = {
         "relevance_source": "synthetic_user", "relevance_version": "neutral-exposure-v1",
         "units": [{"request": request.to_dict(), "relevance": judgments, "complete": True,
                    "initial_snapshot": initial.to_dict(), "state_snapshot": state.to_dict(),
@@ -142,6 +166,11 @@ def _unit(
                    "interaction": EVENTS[cell.condition],
                    "state_version": state.state.version}],
     }
+    if declared_preference is not None:
+        result["profile_observation"] = profile_observation_manifest(
+            agent, declared_preference
+        )
+    return result
 
 
 def write_units(
@@ -154,12 +183,17 @@ def write_units(
 ) -> int:
     catalog_path = "results/derived/test_catalog.json"
     exposure_policy = "neutral-exposure-v1"
+    profile_observation_config: ProfileObservationConfig | None = None
     if execution_spec is not None:
         validate_matrix_execution(matrix, execution_spec)
         if output.resolve() != execution_spec.resolve_path("units"):
             raise ExecutionSpecError("As unidades v2 devem usar exclusivamente paths.units da execução.")
         catalog_path = execution_spec.paths["catalog"]
         exposure_policy = execution_spec.exposure_policy
+        if execution_spec.profile_observation_config is not None:
+            profile_observation_config = load_profile_observation_config(
+                execution_spec.resolve_path("profile_observation_config")
+            )
         if exposure_policy != "neutral-exposure-v1":
             raise ExecutionSpecError(
                 "A geração de unidades para exposição fechada será implementada na issue #87."
@@ -171,6 +205,7 @@ def write_units(
         encoded = json.dumps(_unit(
             cell, catalog, catalog_sha256, catalog_path=catalog_path,
             exposure_policy=exposure_policy,
+            profile_observation_config=profile_observation_config,
         ),
                              ensure_ascii=False, sort_keys=True) + "\n"
         if path.exists():

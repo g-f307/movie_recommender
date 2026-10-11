@@ -30,7 +30,13 @@ from cinebot_ml.ranking import (
     build_candidate_set,
     run_benchmark,
 )
-from cinebot_ml.simulation import SimulationScenario, SyntheticAgent, TemporalSimulator
+from cinebot_ml.simulation import (
+    DeclaredPreference,
+    SimulationScenario,
+    SyntheticAgent,
+    TemporalSimulator,
+    profile_observation_manifest,
+)
 
 
 DEFAULT_COLD_START_CONFIG_PATH = PROJECT_ROOT / "configs/experiments/cold_start_v1.yaml"
@@ -57,6 +63,8 @@ class ColdStartProfile:
     preference_id: str
     profile_data: Mapping[str, Any]
     state: StateSnapshot
+    declared_profile_id: str | None = None
+    profile_source: str = "latent_preference_v1"
 
 
 @dataclass(frozen=True)
@@ -93,21 +101,38 @@ def load_cold_start_config(path: Path = DEFAULT_COLD_START_CONFIG_PATH) -> ColdS
     )
 
 
-def profile_payload(agent: SyntheticAgent, profile: str) -> dict[str, Any]:
+def profile_payload(
+    preference: SyntheticAgent | DeclaredPreference,
+    profile: str,
+) -> dict[str, Any]:
     """Projeta somente informação explicitamente autorizada pelo nível."""
-    genres = [genre for genre, _ in agent.preference.genres]
+    if isinstance(preference, SyntheticAgent):
+        source = {
+            "ranked_genres": [genre for genre, _ in preference.preference.genres],
+            "decade_preference": preference.preference.decade,
+            "popularity_preference": (
+                "popular"
+                if preference.preference.popularity_weight >= 0
+                else "joia_escondida"
+            ),
+            "preferred_directors": list(preference.preference.directors),
+            "preferred_keywords": list(preference.preference.keywords),
+        }
+    elif isinstance(preference, DeclaredPreference):
+        source = preference.to_payload()
+    else:
+        raise ColdStartValidationError("A projeção deve receber um agente ou perfil declarado.")
     payload: dict[str, Any] = {}
     if profile in {"P1", "P2", "P3", "P4", "P5"}:
+        genres = source["ranked_genres"]
         payload["ranked_genres"] = genres[:1] if profile == "P1" else genres[:3]
     if profile in {"P3", "P4", "P5"}:
-        payload["decade_preference"] = agent.preference.decade
+        payload["decade_preference"] = source["decade_preference"]
     if profile in {"P4", "P5"}:
-        payload["popularity_preference"] = (
-            "popular" if agent.preference.popularity_weight >= 0 else "joia_escondida"
-        )
+        payload["popularity_preference"] = source["popularity_preference"]
     if profile == "P5":
-        payload["preferred_directors"] = list(agent.preference.directors)
-        payload["preferred_keywords"] = list(agent.preference.keywords)
+        payload["preferred_directors"] = source["preferred_directors"]
+        payload["preferred_keywords"] = source["preferred_keywords"]
     if profile not in {f"P{index}" for index in range(6)}:
         raise ColdStartValidationError(f"Perfil desconhecido: {profile}")
     return payload
@@ -134,20 +159,28 @@ def build_cold_start_profiles(
     agent: SyntheticAgent,
     allowed_history: StateSnapshot,
     config: ColdStartConfig | None = None,
+    *,
+    declared_preference: DeclaredPreference | None = None,
 ) -> tuple[ColdStartProfile, ...]:
     config = config or load_cold_start_config()
     if allowed_history.state.subject_id != agent.agent_id:
         raise ColdStartValidationError("Histórico permitido pertence a outro agente.")
+    observation_provenance = (
+        profile_observation_manifest(agent, declared_preference)
+        if declared_preference is not None
+        else {}
+    )
     output = []
     for profile in sorted(config.profiles):
-        payload = profile_payload(agent, profile)
+        payload = profile_payload(declared_preference or agent, profile)
         validate_profile_payload(profile, payload, config)
         state = (
             StateSnapshot(
                 UserState(
                     agent.agent_id, "synthetic", "2027-01-01T00:00:00Z",
                     initial_profile=payload,
-                )
+                ),
+                provenance=observation_provenance,
             )
             if profile != "P5"
             else StateSnapshot(
@@ -164,10 +197,19 @@ def build_cold_start_profiles(
                 ),
                 allowed_history.previous_state_id,
                 allowed_history.transition_event_id,
+                provenance=observation_provenance,
             )
         )
         output.append(
-            ColdStartProfile(profile, agent.agent_id, agent.preference_id, payload, state)
+            ColdStartProfile(
+                profile,
+                agent.agent_id,
+                agent.preference_id,
+                payload,
+                state,
+                declared_preference.declared_profile_id if declared_preference else None,
+                "declared_profile_v2" if declared_preference else "latent_preference_v1",
+            )
         )
     return tuple(output)
 
@@ -199,15 +241,27 @@ def run_cold_start_study(
     factories: Mapping[str, RecommenderFactory] | None = None,
     config: ColdStartConfig | None = None,
     protocol_version: str = "protocol-v1.0",
+    declared_preference: DeclaredPreference | None = None,
 ) -> ColdStartReport:
     config = config or load_cold_start_config()
     enabled = tuple(methods)
     if not enabled or not set(enabled).issubset(set(config.methods)):
         raise ColdStartValidationError("Métodos devem pertencer ao protocolo de cold start.")
-    initial_payload = profile_payload(agent, "P5")
-    initial = StateSnapshot(UserState(
-        agent.agent_id, "synthetic", "2027-01-01T00:00:00Z", initial_profile=initial_payload
-    ))
+    initial_payload = profile_payload(declared_preference or agent, "P5")
+    observation_provenance = (
+        profile_observation_manifest(agent, declared_preference)
+        if declared_preference is not None
+        else {}
+    )
+    initial = StateSnapshot(
+        UserState(
+            agent.agent_id,
+            "synthetic",
+            "2027-01-01T00:00:00Z",
+            initial_profile=initial_payload,
+        ),
+        provenance=observation_provenance,
+    )
     reference_scenario = SimulationScenario(
         "B5", condition, "P5", agent.seed, k, catalog_path, catalog_sha256,
         initial, "2027-01-01T00:00:00Z",
@@ -215,7 +269,12 @@ def run_cold_start_study(
     reference = TemporalSimulator(catalog).run(reference_scenario, agent)
     if reference.status == "failed" or reference.final_ranking is None:
         raise ColdStartValidationError("Não foi possível produzir o histórico causal de referência.")
-    profiles = build_cold_start_profiles(agent, reference.final_snapshot, config)
+    profiles = build_cold_start_profiles(
+        agent,
+        reference.final_snapshot,
+        config,
+        declared_preference=declared_preference,
+    )
     supplied = dict(factories or {})
     units = []
     availability = []
@@ -269,6 +328,10 @@ def run_cold_start_study(
         "agent_id": agent.agent_id, "preference_id": agent.preference_id,
         "simulation_id": reference.simulation_id, "benchmark_id": benchmark.benchmark_id,
     }
+    if declared_preference is not None:
+        identity["profile_observation"] = profile_observation_manifest(
+            agent, declared_preference
+        )
     study_id = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()[:24]
     return ColdStartReport(study_id, {**identity, "study_id": study_id}, benchmark, tuple(availability), summary)
 

@@ -271,12 +271,14 @@ class StateSnapshot:
     previous_state_id: str | None = None
     transition_event_id: str | None = None
     schema_version: str = SCHEMA_VERSION
+    provenance: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.schema_version != SCHEMA_VERSION:
             raise PersonalizationContractError(f"schema_version de snapshot não suportada: {self.schema_version}")
         if not isinstance(self.state, UserState):
             raise PersonalizationContractError("state deve ser um UserState.")
+        object.__setattr__(self, "provenance", _validate_private_mapping(self.provenance, "provenance"))
         if self.state.version == 0:
             if self.previous_state_id is not None or self.transition_event_id is not None:
                 raise PersonalizationContractError("Snapshot inicial não pode possuir transição anterior.")
@@ -291,12 +293,15 @@ class StateSnapshot:
         return _canonical_hash(self.to_dict())
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "schema_version": self.schema_version,
             "state": self.state.to_dict(),
             "previous_state_id": self.previous_state_id,
             "transition_event_id": self.transition_event_id,
         }
+        if self.provenance:
+            payload["provenance"] = _thaw_json(self.provenance)
+        return payload
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), ensure_ascii=False, sort_keys=True, allow_nan=False)

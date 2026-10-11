@@ -37,6 +37,12 @@ amostrados deterministicamente a partir da versão, persona, seed e índice do
 agente. O catálogo fornece apenas o vocabulário possível; nenhum resultado de
 recomendação participa dessa construção.
 
+Na v2, essa preferência não é mais entregue diretamente aos recomendadores.
+O perfil declarado observável é descrito em
+[`profile_observation_v2.md`](profile_observation_v2.md). A utilidade,
+julgamentos e relevância continuam dependentes exclusivamente da representação
+latente; B4/B5 recebem somente a projeção declarada permitida por P0--P5.
+
 A utilidade de um filme combina aderência de gênero, diretor, palavras-chave,
 década e popularidade, além de gosto latente por item e ruído da persona. O
 valor final é limitado ao intervalo `[0,1]`. Essa função é uma hipótese

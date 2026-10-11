@@ -8,8 +8,19 @@ from pathlib import Path
 import yaml
 
 from cinebot_ml.dataset import movie_genres
-from cinebot_ml.simulation import AgentConfigError, SyntheticAgent, build_agent, build_agent_cohort, load_agent_config
-from cinebot_ml.simulation.agents import DEFAULT_AGENT_CONFIG_PATH
+from cinebot_ml.simulation import (
+    AgentConfigError,
+    SyntheticAgent,
+    build_agent,
+    build_agent_cohort,
+    build_declared_preference,
+    load_agent_config,
+    load_profile_observation_config,
+)
+from cinebot_ml.simulation.agents import (
+    DEFAULT_AGENT_CONFIG_PATH,
+    DEFAULT_PROFILE_OBSERVATION_CONFIG_PATH,
+)
 
 
 def catalog():
@@ -86,6 +97,58 @@ class SyntheticAgentTests(unittest.TestCase):
         self.assertEqual(len(agents), sum(config.cohort.values()))
         self.assertEqual(len({agent.agent_id for agent in agents}), len(agents))
 
+    def test_perfil_declarado_e_deterministico_e_distinto_do_latente(self):
+        agent = build_agent("consistent", 42, catalog())
+        config = load_profile_observation_config()
+
+        first = build_declared_preference(agent, config)
+        second = build_declared_preference(agent, config)
+
+        self.assertEqual(first, second)
+        self.assertNotEqual(first.declared_profile_id, agent.preference_id)
+        self.assertEqual(first.observation_config_sha256, config.source_sha256)
+        self.assertEqual(first.observation_seed, agent.seed)
+        self.assertNotIn("preference_id", first.to_payload())
+        self.assertEqual(agent.evaluate(catalog()[0], 1), agent.evaluate(catalog()[0], 1))
+
+    def test_observacao_sem_ruido_preserva_valores_declaraveis(self):
+        agent = build_agent("consistent", 42, catalog())
+        config = load_profile_observation_config()
+        noiseless = type(config)(
+            config.version,
+            config.source,
+            {name: 0.0 for name in config.noise},
+            config.source_path,
+            config.source_sha256,
+            config.snapshot,
+        )
+
+        declared = build_declared_preference(agent, noiseless)
+
+        self.assertEqual(declared.ranked_genres, tuple(genre for genre, _ in agent.preference.genres))
+        self.assertEqual(declared.decade_preference, agent.preference.decade)
+        self.assertEqual(
+            declared.popularity_preference,
+            "popular" if agent.preference.popularity_weight >= 0 else "joia_escondida",
+        )
+
+    def test_ruido_muda_somente_a_observacao_e_nao_a_utilidade_latente(self):
+        agent = build_agent("consistent", 42, catalog())
+        config = load_profile_observation_config()
+        maximal_noise = type(config)(
+            config.version,
+            config.source,
+            {name: 1.0 for name in config.noise},
+            config.source_path,
+            config.source_sha256,
+            config.snapshot,
+        )
+
+        observed = build_declared_preference(agent, maximal_noise)
+
+        self.assertNotEqual(observed.ranked_genres, tuple(genre for genre, _ in agent.preference.genres))
+        self.assertEqual(agent.utility(catalog()[0], 1), agent.utility(catalog()[0], 1))
+
     def test_configuracao_invalida_e_lock_sao_bloqueados(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "personas_v1.yaml"
@@ -96,6 +159,23 @@ class SyntheticAgentTests(unittest.TestCase):
             with self.assertRaisesRegex(AgentConfigError, "inválida"): load_agent_config(path)
             path.write_bytes(DEFAULT_AGENT_CONFIG_PATH.read_bytes()); path.with_suffix(".lock.json").write_text(json.dumps({"sha256": "0"*64}))
             with self.assertRaisesRegex(AgentConfigError, "alterada"): load_agent_config(path)
+
+    def test_observacao_invalida_ou_sem_lock_e_bloqueada(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "profile_observation_v2.yaml"
+            payload = yaml.safe_load(DEFAULT_PROFILE_OBSERVATION_CONFIG_PATH.read_text())
+            payload["noise"]["genre_omission"] = 1.1
+            path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+            path.with_suffix(".lock.json").write_text(
+                json.dumps({"sha256": hashlib.sha256(path.read_bytes()).hexdigest()}),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(AgentConfigError, "observação inválida"):
+                load_profile_observation_config(path)
+            path.write_bytes(DEFAULT_PROFILE_OBSERVATION_CONFIG_PATH.read_bytes())
+            path.with_suffix(".lock.json").write_text(json.dumps({"sha256": "0" * 64}))
+            with self.assertRaisesRegex(AgentConfigError, "alterada"):
+                load_profile_observation_config(path)
 
 
 if __name__ == "__main__": unittest.main()
