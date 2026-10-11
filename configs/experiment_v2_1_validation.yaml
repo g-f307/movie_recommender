@@ -1,7 +1,7 @@
 schema_version: "1.0"
 experiment:
   name: movie-recommender-v2_1-validation
-  version: "2.1.0-validation"
+  version: "2.1.1-validation"
   protocol_version: protocol-v2.1
   frozen: true
   execution_id: execution-v2.1
@@ -10,6 +10,6 @@ experiment:
   profile_observation_config: configs/agents/profile_observation_v2.yaml
   closed_loop_config: configs/experiments/closed_loop_v2_1.yaml
   policy_sensitivity_config: configs/experiments/policy_sensitivity_v2_1.yaml
-  output_root: results/v2_1/raw/validation
+  output_root: results/v2_1/revision_2/raw/validation
   selection:
     required: false

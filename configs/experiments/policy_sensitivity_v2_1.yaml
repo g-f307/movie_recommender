@@ -1,8 +1,8 @@
-version: "2.1"
+version: "2.1.1"
 frozen: true
 execution_id: execution-v2.1
 partition: validation
-validation_output_root: results/v2_1/validation/policy_sensitivity
+validation_output_root: results/v2_1/revision_2/validation/policy_sensitivity
 primary_metric: ndcg_at_5
 selection:
   policy: highest_mean_ndcg_at_5_then_scenario_id

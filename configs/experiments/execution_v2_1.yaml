@@ -1,7 +1,7 @@
 schema_version: "1.0"
 execution:
   id: execution-v2.1
-  version: "2.1.0"
+  version: "2.1.1"
   protocol_version: protocol-v2.1
   frozen: true
   exposure_policy: shared-seeded-v2.1
@@ -11,9 +11,9 @@ closed_loop_config: configs/experiments/closed_loop_v2_1.yaml
 
 paths:
   source_catalog: data/filmes.json
-  split_manifest: results/v2_1/manifests/splits/movie_id_split.json
-  catalog: results/v2_1/derived/test_catalog.json
-  units: results/v2_1/units
-  raw: results/v2_1/raw
-  manifests: results/v2_1/manifests/executions
-  reports: results/v2_1/reports
+  split_manifest: results/v2_1/revision_2/manifests/splits/movie_id_split.json
+  catalog: results/v2_1/revision_2/derived/test_catalog.json
+  units: results/v2_1/revision_2/units
+  raw: results/v2_1/revision_2/raw
+  manifests: results/v2_1/revision_2/manifests/executions
+  reports: results/v2_1/revision_2/reports

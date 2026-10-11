@@ -68,6 +68,20 @@ class ExperimentCell:
         payload.pop("method")
         return _hash(payload)
 
+    @property
+    def exposure_id(self) -> str:
+        """Identifica a entrada compartilhada, sem método ou cenário B5."""
+        payload = self._identity()
+        for field in (
+            "method",
+            "policy_scenario_id",
+            "policy_scenario_hash",
+            "policy_selection_id",
+            "policy_selection_sha256",
+        ):
+            payload.pop(field, None)
+        return _hash(payload)
+
     def to_dict(self) -> dict[str, Any]:
         return {**self._identity(), "cell_id": self.cell_id, "comparison_id": self.comparison_id}
 

@@ -178,7 +178,10 @@ def select_validation_scenario(
     """Seleciona cenário por média em pares completos, sem consultar holdout."""
     allowed = {scenario.scenario_id: scenario for scenario in config.scenarios}
     grouped: dict[str, dict[str, float]] = defaultdict(dict)
-    identities: dict[str, dict[str, tuple[Any, Any, Any]]] = defaultdict(dict)
+    evidence_fields = ("agent_id", "seed", "candidate_set_id")
+    if config.execution_id == "execution-v2.1":
+        evidence_fields += ("relevance_id", "trajectory_sha256", "state_version")
+    identities: dict[str, dict[str, tuple[Any, ...]]] = defaultdict(dict)
     invalid: list[dict[str, Any]] = []
     for observation in observations:
         scenario_id = str(observation.get("scenario_id", ""))
@@ -196,8 +199,10 @@ def select_validation_scenario(
             continue
         if comparison_id in grouped[scenario_id]:
             raise PolicySensitivityError("Observação duplicada para cenário e comparison_id.")
-        identity = tuple(observation.get(key) for key in ("agent_id", "seed", "candidate_set_id"))
+        identity = tuple(observation.get(key) for key in evidence_fields)
         if any(value is None for value in identity):
+            if config.execution_id == "execution-v2.1":
+                raise PolicySensitivityError("A evidência compartilhada é obrigatória na seleção v2.1.")
             raise PolicySensitivityError("Agente, seed e conjunto candidato são obrigatórios na seleção.")
         try:
             value = float(observation[config.primary_metric])
@@ -211,7 +216,7 @@ def select_validation_scenario(
     if not expected_ids:
         raise PolicySensitivityError("Nenhum par completo de validação foi produzido.")
     summaries = []
-    reference_identity: dict[str, tuple[Any, Any, Any]] | None = None
+    reference_identity: dict[str, tuple[Any, ...]] | None = None
     for scenario in config.scenarios:
         values = grouped.get(scenario.scenario_id, {})
         if set(values) != expected_ids:
@@ -222,7 +227,11 @@ def select_validation_scenario(
             identities[scenario.scenario_id][comparison_id] != reference_identity[comparison_id]
             for comparison_id in expected_ids
         ):
-            raise PolicySensitivityError("Cenários possuem agentes, seeds ou candidatos incompatíveis.")
+            raise PolicySensitivityError(
+                "Cenários possuem evidência incompatível."
+                if config.execution_id == "execution-v2.1"
+                else "Cenários possuem agentes, seeds ou candidatos incompatíveis."
+            )
         mean = sum(values[comparison_id] for comparison_id in sorted(expected_ids)) / len(expected_ids)
         summaries.append({
             **scenario.to_dict(),

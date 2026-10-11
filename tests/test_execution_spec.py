@@ -52,7 +52,10 @@ class ExecutionSpecTests(unittest.TestCase):
         )
         self.assertEqual(spec.protocol_version, "protocol-v2.1")
         self.assertEqual(spec.exposure_policy, "shared-seeded-v2.1")
-        self.assertTrue(all(path.startswith("results/v2_1/") for path in spec.output_paths.values()))
+        self.assertEqual(spec.version, "2.1.1")
+        self.assertTrue(
+            all(path.startswith("results/v2_1/revision_2/") for path in spec.output_paths.values())
+        )
 
         payload = valid_spec()
         payload["execution"].update({

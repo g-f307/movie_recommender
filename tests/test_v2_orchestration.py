@@ -10,6 +10,7 @@ from cinebot_ml.experiments.v2_config import (
     DEFAULT_V2_HOLDOUT_CONFIG_PATH,
     DEFAULT_V2_VALIDATION_CONFIG_PATH,
     load_v2_experiment_plan,
+    load_v2_experiment_plan_for_protocol,
 )
 from cinebot_ml.experiments.v2_orchestration import (
     V2OrchestrationError,
@@ -122,6 +123,44 @@ class V2OrchestrationTests(unittest.TestCase):
 
         self.assertEqual(report["selection"]["selected_scenario_id"], "S1")
         self.assertEqual({row["partition"] for row in pairs}, {"validation", "holdout"})
+
+    def test_v2_1_freezes_selection_after_all_scenarios_share_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_plan = load_v2_experiment_plan_for_protocol("validation", "protocol-v2.1")
+            execution = replace(
+                source_plan.execution,
+                project_root=root,
+                paths={
+                    **source_plan.execution.paths,
+                    "raw": "raw",
+                    "reports": "reports",
+                },
+            )
+            plan = replace(
+                source_plan,
+                execution=execution,
+                output_root="raw/validation",
+                policy_sensitivity=replace(
+                    source_plan.policy_sensitivity,
+                    scenarios=source_plan.policy_sensitivity.scenarios[:2],
+                ),
+            )
+
+            def shared_result(cell):
+                result = _result(cell)
+                result["individual"].update({
+                    "relevance_id": "relevance-shared",
+                    "state_version": 3,
+                })
+                result["trajectory_sha256"] = "a" * 64
+                return result
+
+            matrix, _ = execute_v2_validation(plan, shared_result, **self._filters())
+            selection = freeze_v2_selection(plan, matrix)
+            selection_exists = selection.is_file()
+
+        self.assertTrue(selection_exists)
 
 
 if __name__ == "__main__":
