@@ -82,6 +82,17 @@ class ExperimentCell:
             payload.pop(field, None)
         return _hash(payload)
 
+    @property
+    def materialization_id(self) -> str:
+        """Identifica o arquivo de unidade sem misturar seleções congeladas."""
+        if self.policy_selection_id is None and self.policy_selection_sha256 is None:
+            return self.exposure_id
+        return _hash({
+            "exposure_id": self.exposure_id,
+            "policy_selection_id": self.policy_selection_id,
+            "policy_selection_sha256": self.policy_selection_sha256,
+        })
+
     def to_dict(self) -> dict[str, Any]:
         return {**self._identity(), "cell_id": self.cell_id, "comparison_id": self.comparison_id}
 
