@@ -262,6 +262,20 @@ class ExecutionSpecTests(unittest.TestCase):
             )
             self.assertEqual(unit["state_version"], 1)
 
+            payload["trajectory"]["final_ranking"]["latency_ms"] = 999.0
+            (spec.resolve_path("units") / f"{cell.cell_id}.json").write_text(
+                json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                write_units(matrix, catalog, "a" * 64, spec.resolve_path("units"), execution_spec=spec),
+                2,
+            )
+            restored = json.loads(
+                (spec.resolve_path("units") / f"{cell.cell_id}.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(restored["trajectory"]["final_ranking"]["latency_ms"], 0.0)
+
     def test_comando_de_validacao_nao_emite_aviso_de_modulo_precarregado(self):
         result = subprocess.run(
             [

@@ -19,6 +19,12 @@ dos caminhos declarados na especificação e grava uma unidade por célula sob
 `paths.units`. Cada unidade contém perfil declarado, proveniência do ruído,
 trajetória de ciclo fechado, relevância sintética, snapshots e chave B4/B5.
 
+As unidades normalizam `latency_ms` para `0.0` dentro das trajetórias
+serializadas. Esse valor é telemetria dependente da máquina e não participa da
+relevância, da política de feedback ou do pareamento; mantê-lo impediria a
+reconstrução determinística da mesma unidade. Avaliações de custo permanecem
+em artefatos próprios de desempenho.
+
 ## Avaliação
 
 `run_v2_cell` retorna o registro individual do benchmark e preserva no mesmo
