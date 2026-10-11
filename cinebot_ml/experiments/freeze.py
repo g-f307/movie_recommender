@@ -166,9 +166,22 @@ def audit_execution(matrix: ExperimentMatrix, output: Path,
                 signature = (individual["candidate_set_id"], individual["relevance_id"],
                              individual["agent_id"], individual["persona"],
                              individual["state_version"])
+                if matrix.protocol_version == "protocol-v2.1":
+                    trajectory_sha256 = record["result"].get("trajectory_sha256")
+                    if not isinstance(trajectory_sha256, str) or len(trajectory_sha256) != 64:
+                        failures.append({"cell_id": cell.cell_id, "reason": "trajectory_hash_missing"})
+                        continue
+                    signature = (*signature, trajectory_sha256)
                 prior = pairs.setdefault(cell.comparison_id, signature)
                 if prior != signature:
-                    failures.append({"cell_id": cell.cell_id, "reason": "pair_mismatch"})
+                    failures.append({
+                        "cell_id": cell.cell_id,
+                        "reason": (
+                            "trajectory_mismatch"
+                            if matrix.protocol_version == "protocol-v2.1"
+                            else "pair_mismatch"
+                        ),
+                    })
                     continue
                 completed += 1
                 continue

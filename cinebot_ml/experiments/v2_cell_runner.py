@@ -11,7 +11,12 @@ from cinebot_ml.dataset import load_catalog
 from cinebot_ml.experiment_config import sha256_file
 from cinebot_ml.experiments.execution import ExecutionSpec, ExecutionSpecError
 from cinebot_ml.experiments.matrix import ExperimentCell, MatrixValidationError
-from cinebot_ml.experiments.policy_sensitivity import build_sensitivity_runtime, load_policy_sensitivity_config
+from cinebot_ml.experiments.policy_sensitivity import (
+    DEFAULT_V2_1_POLICY_SENSITIVITY_CONFIG_PATH,
+    DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
+    build_sensitivity_runtime,
+    load_policy_sensitivity_config,
+)
 from cinebot_ml.personalization import StateSnapshot
 from cinebot_ml.ranking.candidates import build_candidate_set
 from cinebot_ml.ranking.evaluation import BenchmarkUnit, RelevanceJudgments, run_benchmark
@@ -35,24 +40,44 @@ def _validate_cell(cell: ExperimentCell, execution_spec: ExecutionSpec) -> None:
         raise ExecutionSpecError("O hash da célula diverge da execução v2 declarada.")
 
 
-def _load_unit(cell: ExperimentCell, units_root: Path) -> tuple[dict[str, Any], Mapping[str, Any]]:
-    path = units_root / f"{cell.cell_id}.json"
+def _load_unit(
+    cell: ExperimentCell,
+    units_root: Path,
+    execution_spec: ExecutionSpec,
+) -> tuple[dict[str, Any], Mapping[str, Any]]:
+    shared = execution_spec.exposure_policy == "shared-seeded-v2.1"
+    path = units_root / f"{cell.comparison_id if shared else cell.cell_id}.json"
     if not path.is_file():
         raise MatrixValidationError(f"Unidade v2 ausente: {path}")
     try:
         import json
 
         payload = json.loads(path.read_text(encoding="utf-8"))
-        units = payload["units"]
-        unit = units[0]
+        unit = payload["method_units"][cell.method] if shared else payload["units"][0]
     except (OSError, ValueError, KeyError, IndexError, TypeError) as exc:
         raise MatrixValidationError("Unidade v2 inválida ou incompleta.") from exc
-    if len(units) != 1 or payload.get("exposure_policy") != "closed-loop-v2":
+    if not shared and (
+        len(payload.get("units", [])) != 1 or payload.get("exposure_policy") != "closed-loop-v2"
+    ):
         raise MatrixValidationError("A unidade v2 deve conter uma única trajetória em ciclo fechado.")
+    if shared:
+        units = payload.get("method_units", {})
+        if payload.get("exposure_policy") != "shared-seeded-v2.1" or set(units) != {"B4", "B5"}:
+            raise MatrixValidationError("A unidade v2.1 deve derivar B4 e B5 da trajetória compartilhada.")
+        b4, b5 = units["B4"], units["B5"]
+        if (
+            b4.get("trajectory_sha256") != payload.get("trajectory_sha256")
+            or b5.get("trajectory_sha256") != payload.get("trajectory_sha256")
+            or b4.get("request", {}).get("candidate_movie_ids") != b5.get("request", {}).get("candidate_movie_ids")
+            or b4.get("relevance") != b5.get("relevance")
+        ):
+            raise MatrixValidationError("A unidade v2.1 diverge entre B4 e B5.")
     if payload.get("trajectory_audit", {}).get("complete") is not True:
         raise MatrixValidationError("A unidade v2 não possui auditoria causal aprovada.")
     pairing = payload.get("pairing", {})
-    if not pairing.get("pairing_id") or pairing.get("method") != cell.method:
+    if not pairing.get("pairing_id") or (
+        shared and pairing.get("comparison_id") != cell.comparison_id
+    ) or (not shared and pairing.get("method") != cell.method):
         raise MatrixValidationError("A unidade v2 não possui pareamento compatível.")
     return payload, unit
 
@@ -75,7 +100,7 @@ def run_v2_cell(
     """Avalia uma unidade v2 pré-gerada sem consultar contratos ou saídas v1.1."""
     _validate_cell(cell, execution_spec)
     units_root = (units_root or execution_spec.resolve_path("units")).resolve()
-    payload, raw_unit = _load_unit(cell, units_root)
+    payload, raw_unit = _load_unit(cell, units_root, execution_spec)
     try:
         request = RecommendationRequest.from_dict(raw_unit["request"])
         initial = StateSnapshot.from_dict(raw_unit["initial_snapshot"])
@@ -110,7 +135,14 @@ def run_v2_cell(
     if cell.method == "B4":
         recommender = StaticPersonalizedRecommender(candidates, initial.state)
     else:
-        sensitivity = load_policy_sensitivity_config()
+        sensitivity = (
+            load_policy_sensitivity_config(
+                DEFAULT_V2_1_POLICY_SENSITIVITY_CONFIG_PATH,
+                schema_path=DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
+            )
+            if execution_spec.protocol_version == "protocol-v2.1"
+            else load_policy_sensitivity_config()
+        )
         scenario = next(
             (item for item in sensitivity.scenarios if item.scenario_id == cell.policy_scenario_id),
             None,
@@ -155,6 +187,7 @@ def run_v2_cell(
         "exposure_policy": payload["exposure_policy"],
         "exposure_manifest": payload.get("exposure_manifest"),
         "trajectory_audit": payload["trajectory_audit"],
+        "trajectory_sha256": payload.get("trajectory_sha256"),
         "pairing": payload["pairing"],
         "candidate_set_id": candidates.candidate_set_id,
         "relevance_id": relevance.relevance_id,
