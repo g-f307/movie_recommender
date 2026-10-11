@@ -64,6 +64,11 @@ def _config_check() -> str:
     from cinebot_ml.experiments.closed_loop import load_closed_loop_exposure_config
     from cinebot_ml.experiments.execution import load_execution_spec
     from cinebot_ml.experiments.policy_sensitivity import load_policy_sensitivity_config
+    from cinebot_ml.experiments.v2_config import (
+        DEFAULT_V2_HOLDOUT_CONFIG_PATH,
+        DEFAULT_V2_VALIDATION_CONFIG_PATH,
+        load_v2_experiment_plan,
+    )
     from cinebot_ml.personalization import load_profile_update_config
     from cinebot_ml.ranking import (
         load_content_config,
@@ -103,7 +108,9 @@ def _config_check() -> str:
     load_profile_observation_config()
     load_closed_loop_exposure_config()
     load_policy_sensitivity_config()
-    return f"{len(loaders) + 10} configurações, schemas e locks validados"
+    load_v2_experiment_plan(DEFAULT_V2_VALIDATION_CONFIG_PATH)
+    load_v2_experiment_plan(DEFAULT_V2_HOLDOUT_CONFIG_PATH)
+    return f"{len(loaders) + 12} configurações, schemas e locks validados"
 
 
 def _tracked_inputs_check() -> str:

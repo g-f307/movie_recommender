@@ -15,6 +15,7 @@
 - [`research/discovery_metrics.md`](research/discovery_metrics.md): fórmulas e limites de diversidade, novidade, popularidade e estabilidade.
 - [`research/experiment_matrix.md`](research/experiment_matrix.md): enumeração, identidade, execução, checkpoints e retomada da matriz experimental.
 - [`research/execution_v2.md`](research/execution_v2.md): contrato, isolamento de diretórios e comandos da infraestrutura complementar.
+- [`research/v2_experiment_config.md`](research/v2_experiment_config.md): contratos congelados e identidades das matrizes validation e holdout v2.
 - [`research/closed_loop_exposure_v2.md`](research/closed_loop_exposure_v2.md): política causal v2, pareamento B4/B5 e auditoria de trajetórias de feedback.
 - [`research/policy_sensitivity_v2.md`](research/policy_sensitivity_v2.md): cenários v2, seleção em validação e congelamento pré-holdout de parâmetros B5.
 - [`research/v2_analysis.md`](research/v2_analysis.md): validação, inferência pareada e artefatos do estudo complementar v2.

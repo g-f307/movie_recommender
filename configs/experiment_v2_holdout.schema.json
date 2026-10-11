@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "experiment"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "experiment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "protocol_version", "frozen", "execution_id", "partition", "exposure_policy", "profile_observation_config", "closed_loop_config", "policy_sensitivity_config", "output_root", "selection"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "pattern": "^2\\."},
+        "protocol_version": {"const": "protocol-v2.0"},
+        "frozen": {"const": true},
+        "execution_id": {"const": "execution-v2"},
+        "partition": {"const": "holdout"},
+        "exposure_policy": {"const": "closed-loop-v2"},
+        "profile_observation_config": {"const": "configs/agents/profile_observation_v2.yaml"},
+        "closed_loop_config": {"const": "configs/experiments/closed_loop_v2.yaml"},
+        "policy_sensitivity_config": {"const": "configs/experiments/policy_sensitivity_v2.yaml"},
+        "output_root": {"const": "results/v2/raw/holdout"},
+        "selection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "source"],
+          "properties": {
+            "required": {"const": true},
+            "source": {"const": "frozen_validation_selection"}
+          }
+        }
+      }
+    }
+  }
+}
