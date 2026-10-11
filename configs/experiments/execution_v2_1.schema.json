@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/g-f307/movie_recommender/configs/experiments/execution_v2_1.schema.json",
+  "title": "Movie Recommender isolated execution v2.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "execution", "paths"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "execution": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "version", "protocol_version", "frozen", "exposure_policy"],
+      "properties": {
+        "id": {"const": "execution-v2.1"},
+        "version": {"const": "2.1.0"},
+        "protocol_version": {"const": "protocol-v2.1"},
+        "frozen": {"const": true},
+        "exposure_policy": {"const": "shared-seeded-v2.1"}
+      }
+    },
+    "profile_observation_config": {"const": "configs/agents/profile_observation_v2.yaml"},
+    "closed_loop_config": {"const": "configs/experiments/closed_loop_v2_1.yaml"},
+    "paths": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_catalog", "split_manifest", "catalog", "units", "raw", "manifests", "reports"],
+      "properties": {
+        "source_catalog": {"const": "data/filmes.json"},
+        "split_manifest": {"const": "results/v2_1/manifests/splits/movie_id_split.json"},
+        "catalog": {"const": "results/v2_1/derived/test_catalog.json"},
+        "units": {"const": "results/v2_1/units"},
+        "raw": {"const": "results/v2_1/raw"},
+        "manifests": {"const": "results/v2_1/manifests/executions"},
+        "reports": {"const": "results/v2_1/reports"}
+      }
+    }
+  }
+}

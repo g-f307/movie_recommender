@@ -17,6 +17,8 @@ from cinebot_ml.config import PROJECT_ROOT
 
 DEFAULT_V2_EXECUTION_SPEC_PATH = PROJECT_ROOT / "configs/experiments/execution_v2.yaml"
 DEFAULT_V2_EXECUTION_SCHEMA_PATH = PROJECT_ROOT / "configs/experiments/execution_v2.schema.json"
+DEFAULT_V2_1_EXECUTION_SPEC_PATH = PROJECT_ROOT / "configs/experiments/execution_v2_1.yaml"
+DEFAULT_V2_1_EXECUTION_SCHEMA_PATH = PROJECT_ROOT / "configs/experiments/execution_v2_1.schema.json"
 OUTPUT_KEYS = ("split_manifest", "catalog", "units", "raw", "manifests", "reports")
 PROTECTED_V1_PATHS = (
     "results/derived/test_catalog.json",
@@ -114,14 +116,22 @@ def validate_execution_spec(payload: Mapping[str, Any], schema_path: Path = DEFA
     outputs = [paths[key] for key in OUTPUT_KEYS]
     if len(outputs) != len(set(outputs)):
         raise ExecutionSpecError("Os caminhos de saída da execução devem ser distintos.")
+    expected_output_root = {
+        "protocol-v2.0": "results/v2/",
+        "protocol-v2.1": "results/v2_1/",
+    }.get(execution["protocol_version"])
+    if expected_output_root is None:
+        raise ExecutionSpecError("O protocolo de execução não possui raiz de saída isolada.")
     for output in outputs:
         protected = next((path for path in PROTECTED_V1_PATHS if _overlaps(output, path)), None)
         if protected:
             raise ExecutionSpecError(
                 f"A execução v2 não pode reutilizar o caminho protegido da v1.1: {protected}."
             )
-        if not output.startswith("results/v2/"):
-            raise ExecutionSpecError("As saídas v2 devem permanecer sob results/v2/.")
+        if not output.startswith(expected_output_root):
+            raise ExecutionSpecError(
+                f"As saídas {execution['protocol_version']} devem permanecer sob {expected_output_root}."
+            )
 
 
 def load_execution_spec(

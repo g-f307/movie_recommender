@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/g-f307/movie_recommender/configs/experiments/policy_sensitivity_v2_1.schema.json",
+  "title": "Movie Recommender policy sensitivity v2.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "frozen", "execution_id", "partition", "validation_output_root", "primary_metric", "selection", "scenarios"],
+  "properties": {
+    "version": {"const": "2.1"},
+    "frozen": {"const": true},
+    "execution_id": {"const": "execution-v2.1"},
+    "partition": {"const": "validation"},
+    "validation_output_root": {"const": "results/v2_1/validation/policy_sensitivity"},
+    "primary_metric": {"const": "ndcg_at_5"},
+    "selection": {
+      "type": "object", "additionalProperties": false,
+      "required": ["policy", "holdout_used"],
+      "properties": {
+        "policy": {"const": "highest_mean_ndcg_at_5_then_scenario_id"},
+        "holdout_used": {"const": false}
+      }
+    },
+    "scenarios": {
+      "type": "object", "minProperties": 4,
+      "propertyNames": {"pattern": "^S[0-9]+$"},
+      "additionalProperties": {"$ref": "#/$defs/scenario"}
+    }
+  },
+  "$defs": {
+    "scenario": {
+      "type": "object", "additionalProperties": false,
+      "required": ["learning_rate", "decay", "feedback_adjustment_weight"],
+      "properties": {
+        "learning_rate": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        "decay": {"type": "number", "minimum": 0, "maximum": 1},
+        "feedback_adjustment_weight": {"type": "number", "exclusiveMinimum": 0, "maximum": 1}
+      }
+    }
+  }
+}

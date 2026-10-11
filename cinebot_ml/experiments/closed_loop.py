@@ -17,6 +17,10 @@ from cinebot_ml.simulation.temporal import SimulationConfig, SimulationResult
 
 DEFAULT_CLOSED_LOOP_CONFIG_PATH = PROJECT_ROOT / "configs/experiments/closed_loop_v2.yaml"
 DEFAULT_CLOSED_LOOP_SCHEMA_PATH = PROJECT_ROOT / "configs/experiments/closed_loop_v2.schema.json"
+DEFAULT_V2_1_CLOSED_LOOP_CONFIG_PATH = PROJECT_ROOT / "configs/experiments/closed_loop_v2_1.yaml"
+DEFAULT_V2_1_CLOSED_LOOP_SCHEMA_PATH = (
+    PROJECT_ROOT / "configs/experiments/closed_loop_v2_1.schema.json"
+)
 
 
 class ClosedLoopExposureError(ValueError):
@@ -27,6 +31,7 @@ class ClosedLoopExposureError(ValueError):
 class ClosedLoopExposureConfig:
     version: str
     protocol_version: str
+    exposure_policy: str
     condition_events: Mapping[str, int | str]
     full_history_events: int
     feedback_rank: int
@@ -61,8 +66,8 @@ class ClosedLoopExposureConfig:
         )
 
     def manifest(self) -> dict[str, Any]:
-        return {
-            "exposure_policy": "closed-loop-v2",
+        manifest = {
+            "exposure_policy": self.exposure_policy,
             "version": self.version,
             "protocol_version": self.protocol_version,
             "config_sha256": self.source_sha256,
@@ -76,16 +81,22 @@ class ClosedLoopExposureConfig:
                 "fields": list(self.pairing_fields),
             },
         }
+        shared_exposure = self.snapshot.get("shared_exposure")
+        if isinstance(shared_exposure, Mapping):
+            manifest["shared_exposure"] = dict(shared_exposure)
+        return manifest
 
 
 def load_closed_loop_exposure_config(
     path: Path = DEFAULT_CLOSED_LOOP_CONFIG_PATH,
+    *,
+    schema_path: Path = DEFAULT_CLOSED_LOOP_SCHEMA_PATH,
 ) -> ClosedLoopExposureConfig:
     """Carrega schema e lock antes de executar uma trajetória v2."""
     path = path.resolve()
     try:
         payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-        schema = json.loads(DEFAULT_CLOSED_LOOP_SCHEMA_PATH.read_text(encoding="utf-8"))
+        schema = json.loads(schema_path.resolve().read_text(encoding="utf-8"))
     except (OSError, ValueError, yaml.YAMLError) as exc:
         raise ClosedLoopExposureError(f"Não foi possível carregar exposição fechada: {exc}") from exc
     error = next(iter(Draft202012Validator(schema).iter_errors(payload)), None)
@@ -102,6 +113,7 @@ def load_closed_loop_exposure_config(
     return ClosedLoopExposureConfig(
         str(payload["version"]),
         str(payload["protocol_version"]),
+        str(payload["exposure_policy"]),
         dict(payload["conditions"]),
         int(payload["full_history_events"]),
         int(selection["rank"]),

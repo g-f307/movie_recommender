@@ -9,6 +9,8 @@ from pathlib import Path
 import yaml
 
 from cinebot_ml.experiments.execution import (
+    DEFAULT_V2_1_EXECUTION_SCHEMA_PATH,
+    DEFAULT_V2_1_EXECUTION_SPEC_PATH,
     ExecutionSpecError,
     load_execution_spec,
     prepare_execution_directories,
@@ -43,6 +45,25 @@ def valid_spec():
 
 
 class ExecutionSpecTests(unittest.TestCase):
+    def test_contrato_v2_1_exige_raiz_de_saida_propria(self):
+        spec = load_execution_spec(
+            DEFAULT_V2_1_EXECUTION_SPEC_PATH,
+            schema_path=DEFAULT_V2_1_EXECUTION_SCHEMA_PATH,
+        )
+        self.assertEqual(spec.protocol_version, "protocol-v2.1")
+        self.assertEqual(spec.exposure_policy, "shared-seeded-v2.1")
+        self.assertTrue(all(path.startswith("results/v2_1/") for path in spec.output_paths.values()))
+
+        payload = valid_spec()
+        payload["execution"].update({
+            "id": "study-v2.1",
+            "version": "2.1.0",
+            "protocol_version": "protocol-v2.1",
+            "exposure_policy": "shared-seeded-v2.1",
+        })
+        with self.assertRaisesRegex(ExecutionSpecError, "results/v2_1"):
+            validate_execution_spec(payload)
+
     def write_spec(self, root: Path, payload=None) -> Path:
         path = root / "configs" / "execution_v2.yaml"
         path.parent.mkdir(parents=True)

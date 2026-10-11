@@ -30,6 +30,12 @@ DEFAULT_V2_VALIDATION_SCHEMA_PATH = PROJECT_ROOT / "configs/experiment_v2_valida
 DEFAULT_V2_HOLDOUT_SCHEMA_PATH = PROJECT_ROOT / "configs/experiment_v2_holdout.schema.json"
 DEFAULT_V2_MATRIX_CONFIG_PATH = PROJECT_ROOT / "configs/experiments/matrix_v2.yaml"
 DEFAULT_V2_MATRIX_SCHEMA_PATH = PROJECT_ROOT / "configs/experiments/matrix_v2.schema.json"
+DEFAULT_V2_1_VALIDATION_CONFIG_PATH = PROJECT_ROOT / "configs/experiment_v2_1_validation.yaml"
+DEFAULT_V2_1_HOLDOUT_CONFIG_PATH = PROJECT_ROOT / "configs/experiment_v2_1_holdout.yaml"
+DEFAULT_V2_1_VALIDATION_SCHEMA_PATH = PROJECT_ROOT / "configs/experiment_v2_1_validation.schema.json"
+DEFAULT_V2_1_HOLDOUT_SCHEMA_PATH = PROJECT_ROOT / "configs/experiment_v2_1_holdout.schema.json"
+DEFAULT_V2_1_MATRIX_CONFIG_PATH = PROJECT_ROOT / "configs/experiments/matrix_v2_1.yaml"
+DEFAULT_V2_1_MATRIX_SCHEMA_PATH = PROJECT_ROOT / "configs/experiments/matrix_v2_1.schema.json"
 
 
 class V2ExperimentConfigError(ValueError):
@@ -103,8 +109,8 @@ def _selected(available: Sequence[Any], requested: Sequence[Any] | None, label: 
     return values
 
 
-def _load_matrix_config(path: Path) -> tuple[dict[str, Any], str]:
-    return _load_yaml(path.resolve(), DEFAULT_V2_MATRIX_SCHEMA_PATH, "matriz v2")
+def _load_matrix_config(path: Path, schema_path: Path) -> tuple[dict[str, Any], str]:
+    return _load_yaml(path.resolve(), schema_path.resolve(), "matriz v2")
 
 
 def load_v2_experiment_plan(
@@ -112,6 +118,10 @@ def load_v2_experiment_plan(
     *,
     matrix_config_path: Path = DEFAULT_V2_MATRIX_CONFIG_PATH,
     execution_spec_path: Path | None = None,
+    config_schema_path: Path | None = None,
+    matrix_schema_path: Path = DEFAULT_V2_MATRIX_SCHEMA_PATH,
+    execution_schema_path: Path | None = None,
+    policy_sensitivity_schema_path: Path | None = None,
 ) -> V2ExperimentPlan:
     """Carrega uma partição v2 somente se todos os contratos estiverem congelados."""
     path = path.resolve()
@@ -120,9 +130,16 @@ def load_v2_experiment_plan(
         partition = preliminary["experiment"]["partition"]
     except (OSError, KeyError, TypeError, yaml.YAMLError) as exc:
         raise V2ExperimentConfigError("Configuração v2 sem partição identificável.") from exc
-    payload, digest = _load_yaml(path, _schema_for_partition(partition), "configuração v2")
-    matrix_config, matrix_digest = _load_matrix_config(matrix_config_path)
-    execution = load_execution_spec(execution_spec_path) if execution_spec_path else load_execution_spec()
+    payload, digest = _load_yaml(
+        path,
+        (config_schema_path or _schema_for_partition(partition)).resolve(),
+        "configuração v2",
+    )
+    matrix_config, matrix_digest = _load_matrix_config(matrix_config_path, matrix_schema_path)
+    execution = load_execution_spec(
+        execution_spec_path or PROJECT_ROOT / "configs/experiments/execution_v2.yaml",
+        schema_path=execution_schema_path or PROJECT_ROOT / "configs/experiments/execution_v2.schema.json",
+    )
     experiment = payload["experiment"]
     if experiment["execution_id"] != execution.execution_id:
         raise V2ExperimentConfigError("A configuração v2 pertence a outra execução.")
@@ -143,7 +160,8 @@ def load_v2_experiment_plan(
         raise V2ExperimentConfigError("A matriz v2 usa outra política de exposição.")
     try:
         sensitivity = load_policy_sensitivity_config(
-            PROJECT_ROOT / str(experiment["policy_sensitivity_config"])
+            PROJECT_ROOT / str(experiment["policy_sensitivity_config"]),
+            schema_path=(policy_sensitivity_schema_path or PROJECT_ROOT / "configs/experiments/policy_sensitivity_v2.schema.json"),
         )
     except PolicySensitivityError as exc:
         raise V2ExperimentConfigError(str(exc)) from exc

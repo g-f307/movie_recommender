@@ -23,6 +23,12 @@ DEFAULT_POLICY_SENSITIVITY_CONFIG_PATH = (
 DEFAULT_POLICY_SENSITIVITY_SCHEMA_PATH = (
     PROJECT_ROOT / "configs/experiments/policy_sensitivity_v2.schema.json"
 )
+DEFAULT_V2_1_POLICY_SENSITIVITY_CONFIG_PATH = (
+    PROJECT_ROOT / "configs/experiments/policy_sensitivity_v2_1.yaml"
+)
+DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH = (
+    PROJECT_ROOT / "configs/experiments/policy_sensitivity_v2_1.schema.json"
+)
 
 
 class PolicySensitivityError(ValueError):
@@ -81,12 +87,14 @@ class SensitivityRuntime:
 
 def load_policy_sensitivity_config(
     path: Path = DEFAULT_POLICY_SENSITIVITY_CONFIG_PATH,
+    *,
+    schema_path: Path = DEFAULT_POLICY_SENSITIVITY_SCHEMA_PATH,
 ) -> PolicySensitivityConfig:
     """Carrega a grade v2 e confirma que ela está congelada por lock."""
     path = path.resolve()
     try:
         payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-        schema = json.loads(DEFAULT_POLICY_SENSITIVITY_SCHEMA_PATH.read_text(encoding="utf-8"))
+        schema = json.loads(schema_path.resolve().read_text(encoding="utf-8"))
     except (OSError, ValueError, yaml.YAMLError) as exc:
         raise PolicySensitivityError(f"Não foi possível carregar a sensibilidade: {exc}") from exc
     error = next(iter(Draft202012Validator(schema).iter_errors(payload)), None)
