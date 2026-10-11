@@ -74,7 +74,8 @@ O runner de células e seus requisitos de proveniência são documentados em
 comandos e as proteções do holdout estão em
 [`v2_orchestration.md`](v2_orchestration.md). Ela grava validation e holdout em
 diretórios distintos, audita ambas as matrizes e só então cria um
-`execution.manifest.json` selado para a análise.
+`execution.manifest.json` selado para a análise. A primeira validation também
+materializa o split v2 isolado a partir do dataset disponível localmente.
 
 ## Compatibilidade
 

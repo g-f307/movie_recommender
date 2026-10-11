@@ -33,6 +33,12 @@ as etapas, por exemplo `--condition C0 --profile P0 --persona consistent
 --seed 42 --k 5`. Não misture recortes entre validation, congelamento e
 holdout: isso altera a identidade da matriz e a finalização recusará o fluxo.
 
+No início de `validation`, o projeto gera
+`results/v2/manifests/splits/movie_id_split.json` a partir de
+`datasets/movie_preferences.csv`, usando seed 42 e o protocolo v2. O manifesto
+inclui a identidade e o hash da execução e não reutiliza o split legado. Essa
+etapa pode demorar com o dataset completo.
+
 ## Proteções
 
 - `holdout` recusa qualquer chamada sem `selection.json` e lock compatíveis;
@@ -44,7 +50,7 @@ holdout: isso altera a identidade da matriz e a finalização recusará o fluxo.
 - `execution.manifest.json` não pode ser sobrescrito e é aceito por
   `cinebot_ml.analysis.v2_analysis`.
 
-O split v2, o catálogo isolado e os dados de origem precisam estar disponíveis
-localmente antes dos comandos de execução. A recuperação de dados privados usa
-o remoto DVC documentado em `artifact_reproduction.md`; credenciais nunca são
-passadas na linha de comando nem registradas nos manifestos.
+O dataset de origem precisa estar disponível localmente antes dos comandos de
+execução. A recuperação de dados privados usa o remoto DVC documentado em
+`artifact_reproduction.md`; credenciais nunca são passadas na linha de comando
+nem registradas nos manifestos.
