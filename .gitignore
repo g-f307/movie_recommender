@@ -69,6 +69,8 @@ results/derived/specialized_v1/robustness/*
 !results/derived/specialized_v1/robustness/*.dvc
 !results/derived/specialized_v1/robustness/.gitignore
 results/units_v1_1/
+results/v2/
+results/v2_1/
 !results/.gitignore
 !results/*.dvc
 datasets/*.csv
