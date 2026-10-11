@@ -62,6 +62,23 @@ def prepare_v2_split(
         raise V2OrchestrationError("O dataset do split v2 deve permanecer dentro do projeto.")
     if not dataset.is_file():
         raise V2OrchestrationError(f"Dataset v2 ausente: {dataset}")
+    target = execution.resolve_path("split_manifest")
+    if target.is_file():
+        try:
+            existing = json.loads(target.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise V2OrchestrationError("Split v2 existente está corrompido.") from exc
+        config = existing.get("config", {})
+        if (
+            existing.get("execution_id") == execution.execution_id
+            and existing.get("execution_config_sha256") == execution.sha256
+            and existing.get("protocol_version") == execution.protocol_version
+            and existing.get("source_sha256") == sha256_file(dataset)
+            and config.get("seed") == 42
+            and config.get("attempts") == attempts
+        ):
+            return existing
+        raise V2OrchestrationError("Split v2 existente diverge da fonte ou configuração declarada.")
     try:
         manifest = create_group_manifest_from_csv(
             dataset,
@@ -75,15 +92,6 @@ def prepare_v2_split(
         "execution_config_sha256": execution.sha256,
         "protocol_version": execution.protocol_version,
     }
-    target = execution.resolve_path("split_manifest")
-    if target.is_file():
-        try:
-            existing = json.loads(target.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as exc:
-            raise V2OrchestrationError("Split v2 existente está corrompido.") from exc
-        if existing != manifest:
-            raise V2OrchestrationError("Split v2 existente diverge da fonte ou configuração declarada.")
-        return manifest
     try:
         write_manifest(manifest, target)
     except OSError as exc:
