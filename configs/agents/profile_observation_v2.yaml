@@ -1,0 +1,10 @@
+version: "2.0"
+frozen: true
+source: declared_profile_projection_v2
+noise:
+  genre_omission: 0.20
+  genre_rank_shuffle: 0.15
+  decade_misclassification: 0.10
+  popularity_misclassification: 0.10
+  director_omission: 0.25
+  keyword_omission: 0.25

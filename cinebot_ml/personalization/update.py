@@ -264,6 +264,7 @@ class ProfileUpdater:
             state=new_state,
             previous_state_id=state.state_id,
             transition_event_id=event.event_id,
+            provenance=snapshot.provenance,
         )
 
     def method_manifest(self) -> dict[str, Any]:

@@ -17,6 +17,12 @@ from cinebot_ml.dataset import movie_genres, slugify
 
 DEFAULT_AGENT_CONFIG_PATH = PROJECT_ROOT / "configs/agents/personas_v1.yaml"
 DEFAULT_AGENT_SCHEMA_PATH = PROJECT_ROOT / "configs/agents/personas_v1.schema.json"
+DEFAULT_PROFILE_OBSERVATION_CONFIG_PATH = (
+    PROJECT_ROOT / "configs/agents/profile_observation_v2.yaml"
+)
+DEFAULT_PROFILE_OBSERVATION_SCHEMA_PATH = (
+    PROJECT_ROOT / "configs/agents/profile_observation_v2.schema.json"
+)
 
 class AgentConfigError(ValueError):
     """Configuração ou item incompatível com os agentes sintéticos."""
@@ -30,6 +36,18 @@ class AgentConfig:
     version: str
     personas: Mapping[str, Mapping[str, float | int]]
     cohort: Mapping[str, int]
+    source_path: Path
+    source_sha256: str
+    snapshot: Mapping[str, Any]
+
+
+@dataclass(frozen=True)
+class ProfileObservationConfig:
+    """Contrato congelado da projeção da preferência latente observável."""
+
+    version: str
+    source: str
+    noise: Mapping[str, float]
     source_path: Path
     source_sha256: str
     snapshot: Mapping[str, Any]
@@ -58,6 +76,39 @@ def load_agent_config(path: Path = DEFAULT_AGENT_CONFIG_PATH) -> AgentConfig:
         raise AgentConfigError("A configuração de personas foi alterada sem nova versão.")
     return AgentConfig(str(payload["version"]), payload["personas"], payload["cohort"], path, digest, dict(payload))
 
+
+def load_profile_observation_config(
+    path: Path = DEFAULT_PROFILE_OBSERVATION_CONFIG_PATH,
+) -> ProfileObservationConfig:
+    """Carrega a observação declarada v2 e verifica seu schema e lock."""
+    path = path.resolve()
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+        schema = json.loads(DEFAULT_PROFILE_OBSERVATION_SCHEMA_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        raise AgentConfigError(f"Não foi possível carregar observação de perfil: {exc}") from exc
+    error = next(iter(Draft202012Validator(schema).iter_errors(payload)), None)
+    if error:
+        raise AgentConfigError(f"Configuração de observação inválida: {error.message}")
+    numbers = list(payload["noise"].values())
+    if any(not math.isfinite(float(value)) or not 0.0 <= float(value) <= 1.0 for value in numbers):
+        raise AgentConfigError("Intensidades de ruído devem ser finitas e pertencer a [0, 1].")
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    try:
+        lock = json.loads(path.with_suffix(".lock.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise AgentConfigError("Lock da observação de perfil ausente ou inválido.") from exc
+    if lock.get("sha256") != digest:
+        raise AgentConfigError("A observação de perfil foi alterada sem nova versão.")
+    return ProfileObservationConfig(
+        str(payload["version"]),
+        str(payload["source"]),
+        {name: float(value) for name, value in payload["noise"].items()},
+        path,
+        digest,
+        dict(payload),
+    )
+
 @dataclass(frozen=True)
 class LatentPreference:
     genres: tuple[tuple[str, float], ...]
@@ -66,6 +117,37 @@ class LatentPreference:
     decade: str
     popularity_weight: float
     preference_id: str
+
+
+@dataclass(frozen=True)
+class DeclaredPreference:
+    """Preferência observável entregue aos recomendadores no estudo v2.
+
+    A classe não contém pesos de utilidade nem o identificador da preferência
+    latente. A associação entre as duas representações é registrada somente no
+    manifesto externo da unidade experimental.
+    """
+
+    ranked_genres: tuple[str, ...]
+    preferred_directors: tuple[str, ...]
+    preferred_keywords: tuple[str, ...]
+    decade_preference: str
+    popularity_preference: str
+    declared_profile_id: str
+    observation_seed: int
+    observation_config_sha256: str
+    observation_source: str
+    noise: Mapping[str, float]
+
+    def to_payload(self) -> dict[str, Any]:
+        """Produz somente campos que podem alimentar P0--P5."""
+        return {
+            "ranked_genres": list(self.ranked_genres),
+            "preferred_directors": list(self.preferred_directors),
+            "preferred_keywords": list(self.preferred_keywords),
+            "decade_preference": self.decade_preference,
+            "popularity_preference": self.popularity_preference,
+        }
 
 @dataclass(frozen=True)
 class SyntheticJudgment:
@@ -104,6 +186,120 @@ def build_agent(persona: str, seed: int, catalog: Sequence[Mapping[str, Any]], c
     preference = LatentPreference(weighted_genres, tuple(latent_payload["directors"]), tuple(latent_payload["keywords"]), str(latent_payload["decade"]), float(params["popularity_weight"]), _hash(latent_payload)[:24])
     agent_id = f"synthetic-{persona}-{seed}-{index:04d}"
     return SyntheticAgent(agent_id, persona, seed, preference, params, config)
+
+
+def _observed_values(
+    values: Sequence[str],
+    *,
+    omission_probability: float,
+    shuffle_probability: float,
+    rng: random.Random,
+) -> tuple[str, ...]:
+    """Aplica omissão e perturbação de ordem sem consultar o catálogo futuro."""
+    observed = [value for value in values if rng.random() >= omission_probability]
+    if not observed and values:
+        observed = [values[0]]
+    if len(observed) > 1 and rng.random() < shuffle_probability:
+        rng.shuffle(observed)
+    return tuple(observed)
+
+
+def _observed_category(
+    value: str,
+    choices: Sequence[str],
+    probability: float,
+    rng: random.Random,
+) -> str:
+    if rng.random() >= probability:
+        return value
+    alternatives = [choice for choice in choices if choice != value]
+    return rng.choice(alternatives) if alternatives else value
+
+
+def build_declared_preference(
+    agent: "SyntheticAgent",
+    config: ProfileObservationConfig | None = None,
+) -> DeclaredPreference:
+    """Projeta uma preferência observável determinística e imperfeita.
+
+    A preferência latente permanece exclusivamente no agente e continua sendo
+    usada pela função de utilidade. A projeção usa somente identidade do agente,
+    seed e configuração congelada; não consulta ranking, feedback nem holdout.
+    """
+    config = config or load_profile_observation_config()
+    rng = random.Random(
+        _hash(["declared-profile-v2", config.version, config.source_sha256, agent.agent_id, agent.seed])
+    )
+    genres = _observed_values(
+        [genre for genre, _ in agent.preference.genres],
+        omission_probability=config.noise["genre_omission"],
+        shuffle_probability=config.noise["genre_rank_shuffle"],
+        rng=rng,
+    )
+    directors = _observed_values(
+        agent.preference.directors,
+        omission_probability=config.noise["director_omission"],
+        shuffle_probability=0.0,
+        rng=rng,
+    )
+    keywords = _observed_values(
+        agent.preference.keywords,
+        omission_probability=config.noise["keyword_omission"],
+        shuffle_probability=0.0,
+        rng=rng,
+    )
+    decade = _observed_category(
+        agent.preference.decade,
+        ("antes_2000", "anos_2000", "moderno"),
+        config.noise["decade_misclassification"],
+        rng,
+    )
+    latent_popularity = (
+        "popular" if agent.preference.popularity_weight >= 0 else "joia_escondida"
+    )
+    popularity = _observed_category(
+        latent_popularity,
+        ("popular", "joia_escondida"),
+        config.noise["popularity_misclassification"],
+        rng,
+    )
+    observable = {
+        "agent_id": agent.agent_id,
+        "observation_seed": agent.seed,
+        "observation_config_sha256": config.source_sha256,
+        "ranked_genres": genres,
+        "preferred_directors": directors,
+        "preferred_keywords": keywords,
+        "decade_preference": decade,
+        "popularity_preference": popularity,
+    }
+    return DeclaredPreference(
+        genres,
+        directors,
+        keywords,
+        decade,
+        popularity,
+        _hash(observable)[:24],
+        agent.seed,
+        config.source_sha256,
+        config.source,
+        dict(config.noise),
+    )
+
+
+def profile_observation_manifest(
+    agent: "SyntheticAgent",
+    preference: DeclaredPreference,
+) -> dict[str, Any]:
+    """Registra a ligação auditável fora do estado entregue a B4/B5."""
+    return {
+        "source": preference.observation_source,
+        "latent_preference_id": agent.preference_id,
+        "declared_profile_id": preference.declared_profile_id,
+        "observation_seed": preference.observation_seed,
+        "observation_config_sha256": preference.observation_config_sha256,
+        "noise": dict(preference.noise),
+    }
 
 class SyntheticAgent:
     """Avalia um item sem receber ranking, método, posição ou score externo."""

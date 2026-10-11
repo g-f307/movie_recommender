@@ -2,6 +2,7 @@ import unittest
 
 from cinebot_ml.experiments.matrix import ExperimentCell
 from cinebot_ml.experiments.units import EVENTS, _unit
+from cinebot_ml.simulation import load_profile_observation_config
 
 
 def catalog():
@@ -32,6 +33,24 @@ class UnitGenerationTests(unittest.TestCase):
         self.assertEqual(len(unit["relevance"]), 14)
         self.assertLess(unit["state_snapshot"]["state"]["logical_timestamp"],
                         unit["request"]["logical_timestamp"])
+
+    def test_unidade_com_observacao_v2_registra_proveniencia_sem_vazar_no_perfil(self):
+        cell = ExperimentCell("B4", "C1", "P1", "consistent", 42, 5)
+        unit = _unit(
+            cell,
+            catalog(),
+            "a" * 64,
+            profile_observation_config=load_profile_observation_config(),
+        )["units"][0]
+
+        self.assertEqual(set(unit["request"]["profile_data"]), {"ranked_genres"})
+        self.assertNotIn("latent_preference_id", unit["request"]["profile_data"])
+        self.assertIn("declared_profile_id", unit["initial_snapshot"]["provenance"])
+        self.assertIn("latent_preference_id", unit["initial_snapshot"]["provenance"])
+        self.assertEqual(
+            unit["state_snapshot"]["provenance"],
+            unit["initial_snapshot"]["provenance"],
+        )
 
 
 if __name__ == "__main__":

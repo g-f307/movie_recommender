@@ -60,6 +60,7 @@ class ExecutionSpec:
     protocol_version: str
     exposure_policy: str
     paths: Mapping[str, str]
+    profile_observation_config: str | None
     sha256: str
     source_path: Path
     project_root: Path
@@ -69,10 +70,13 @@ class ExecutionSpec:
         return {key: self.paths[key] for key in OUTPUT_KEYS}
 
     def resolve_path(self, key: str, project_root: Path | None = None) -> Path:
-        try:
-            relative = self.paths[key]
-        except KeyError as exc:
-            raise ExecutionSpecError(f"Caminho desconhecido na execução: {key}") from exc
+        if key == "profile_observation_config" and self.profile_observation_config is not None:
+            relative = self.profile_observation_config
+        else:
+            try:
+                relative = self.paths[key]
+            except KeyError as exc:
+                raise ExecutionSpecError(f"Caminho desconhecido na execução: {key}") from exc
         root = (project_root or self.project_root).resolve()
         resolved = (root / relative).resolve()
         if resolved != root and root not in resolved.parents:
@@ -98,6 +102,9 @@ def validate_execution_spec(payload: Mapping[str, Any], schema_path: Path = DEFA
                for key in ("id", "version", "protocol_version", "exposure_policy")):
         raise ExecutionSpecError("Identidade, versão, protocolo e política devem ser textos não vazios.")
     paths = {key: _relative_path(value, key) for key, value in payload["paths"].items()}
+    profile_observation_config = payload.get("profile_observation_config")
+    if profile_observation_config is not None:
+        _relative_path(profile_observation_config, "profile_observation_config")
     outputs = [paths[key] for key in OUTPUT_KEYS]
     if len(outputs) != len(set(outputs)):
         raise ExecutionSpecError("Os caminhos de saída da execução devem ser distintos.")
@@ -133,18 +140,26 @@ def load_execution_spec(
     if lock.get("sha256") != digest:
         raise ExecutionSpecError("A configuração v2 diverge do lock; crie uma nova versão e lock.")
     paths = {key: _relative_path(value, key) for key, value in payload["paths"].items()}
+    profile_observation_config = payload.get("profile_observation_config")
     spec = ExecutionSpec(
         execution_id=payload["execution"]["id"],
         version=payload["execution"]["version"],
         protocol_version=payload["execution"]["protocol_version"],
         exposure_policy=payload["execution"]["exposure_policy"],
         paths=paths,
+        profile_observation_config=(
+            _relative_path(profile_observation_config, "profile_observation_config")
+            if profile_observation_config is not None
+            else None
+        ),
         sha256=digest,
         source_path=path,
         project_root=project_root.resolve(),
     )
     for key in spec.paths:
         spec.resolve_path(key, project_root)
+    if spec.profile_observation_config is not None:
+        spec.resolve_path("profile_observation_config", project_root)
     return spec
 
 
