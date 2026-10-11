@@ -46,7 +46,7 @@ def _load_unit(
     execution_spec: ExecutionSpec,
 ) -> tuple[dict[str, Any], Mapping[str, Any]]:
     shared = execution_spec.exposure_policy == "shared-seeded-v2.1"
-    path = units_root / f"{cell.exposure_id if shared else cell.cell_id}.json"
+    path = units_root / f"{cell.materialization_id if shared else cell.cell_id}.json"
     if not path.is_file():
         raise MatrixValidationError(f"Unidade v2 ausente: {path}")
     try:

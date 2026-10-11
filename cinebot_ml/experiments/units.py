@@ -587,9 +587,10 @@ def write_units(
     if exposure_policy == "shared-seeded-v2.1":
         groups: dict[str, list[ExperimentCell]] = defaultdict(list)
         for cell in matrix.cells:
-            groups[cell.exposure_id].append(cell)
+            groups[cell.materialization_id].append(cell)
         unique: Mapping[str, Any] = {
-            exposure_id: tuple(sorted(cells)) for exposure_id, cells in groups.items()
+            materialization_id: tuple(sorted(cells))
+            for materialization_id, cells in groups.items()
         }
     else:
         unique = (

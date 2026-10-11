@@ -270,6 +270,71 @@ class V2CellRunnerTests(unittest.TestCase):
         self.assertEqual(count, 1)
         self.assertEqual([path.name for path in files], [f"{cells[0].exposure_id}.json"])
 
+    def test_v2_1_materializes_distinct_holdout_units_for_distinct_frozen_selections(self):
+        base_spec = load_execution_spec(
+            DEFAULT_V2_1_EXECUTION_SPEC_PATH,
+            schema_path=DEFAULT_V2_1_EXECUTION_SCHEMA_PATH,
+        )
+        scenario = load_policy_sensitivity_config(
+            DEFAULT_V2_1_POLICY_SENSITIVITY_CONFIG_PATH,
+            schema_path=DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
+        ).scenarios[0]
+        exposure = load_closed_loop_exposure_config(
+            DEFAULT_V2_1_CLOSED_LOOP_CONFIG_PATH,
+            schema_path=DEFAULT_V2_1_CLOSED_LOOP_SCHEMA_PATH,
+        )
+
+        def holdout(selection_id: str, selection_sha256: str) -> ExperimentMatrix:
+            common = {
+                "execution_id": base_spec.execution_id,
+                "execution_config_sha256": base_spec.sha256,
+                "partition": "holdout",
+                "policy_scenario_id": scenario.scenario_id,
+                "policy_scenario_hash": scenario.scenario_hash,
+                "policy_selection_id": selection_id,
+                "policy_selection_sha256": selection_sha256,
+            }
+            cells = (
+                ExperimentCell("B4", "C0", "P0", "consistent", 42, 5, **common),
+                ExperimentCell("B5", "C0", "P0", "consistent", 42, 5, **common),
+            )
+            return ExperimentMatrix(
+                "2.1", base_spec.protocol_version, "a" * 64, "b" * 64, "c" * 64,
+                cells, (), execution_id=base_spec.execution_id,
+                execution_config_sha256=base_spec.sha256, partition="holdout",
+                policy_selection_id=selection_id,
+                policy_selection_sha256=selection_sha256,
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            spec = replace(
+                base_spec,
+                paths={**base_spec.paths, "units": "units", "catalog": "catalog.json"},
+                profile_observation_config="profile.yaml",
+                closed_loop_config="closed_loop.yaml",
+                project_root=root,
+            )
+            with (
+                patch("cinebot_ml.experiments.units.load_profile_observation_config", return_value=load_profile_observation_config()),
+                patch("cinebot_ml.experiments.units.load_closed_loop_exposure_config", return_value=exposure),
+            ):
+                first = holdout("selection-a", "a" * 64)
+                second = holdout("selection-b", "b" * 64)
+                write_units(first, catalog(), "a" * 64, root / "units", execution_spec=spec)
+                write_units(second, catalog(), "a" * 64, root / "units", execution_spec=spec)
+            files = sorted((root / "units").glob("*.json"))
+            source = root / "catalog.json"
+            source.write_text(json.dumps({"perfis": {"drama": catalog()}}), encoding="utf-8")
+            result = run_v2_cell(second.cells[0], execution_spec=spec, units_root=root / "units", catalog_path=source)
+
+        self.assertEqual(len(files), 2)
+        self.assertEqual(
+            [path.name for path in files],
+            sorted(f"{matrix.cells[0].materialization_id}.json" for matrix in (first, second)),
+        )
+        self.assertEqual(result["individual"]["method"], "B4")
+
     def test_v2_1_audit_rejeita_trajectory_hash_divergente_no_mesmo_par(self):
         base_spec = load_execution_spec(
             DEFAULT_V2_1_EXECUTION_SPEC_PATH,
