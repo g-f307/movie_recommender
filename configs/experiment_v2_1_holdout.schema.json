@@ -10,7 +10,7 @@
       "required": ["name", "version", "protocol_version", "frozen", "execution_id", "partition", "exposure_policy", "profile_observation_config", "closed_loop_config", "policy_sensitivity_config", "output_root", "selection"],
       "properties": {
         "name": {"const": "movie-recommender-v2_1-holdout"},
-        "version": {"const": "2.1.0-holdout"},
+        "version": {"const": "2.1.1-holdout"},
         "protocol_version": {"const": "protocol-v2.1"},
         "frozen": {"const": true},
         "execution_id": {"const": "execution-v2.1"},
@@ -19,7 +19,7 @@
         "profile_observation_config": {"const": "configs/agents/profile_observation_v2.yaml"},
         "closed_loop_config": {"const": "configs/experiments/closed_loop_v2_1.yaml"},
         "policy_sensitivity_config": {"const": "configs/experiments/policy_sensitivity_v2_1.yaml"},
-        "output_root": {"const": "results/v2_1/raw/holdout"},
+        "output_root": {"const": "results/v2_1/revision_2/raw/holdout"},
         "selection": {
           "type": "object", "additionalProperties": false,
           "required": ["required", "source"],

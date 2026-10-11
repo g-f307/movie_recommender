@@ -12,7 +12,7 @@
       "required": ["id", "version", "protocol_version", "frozen", "exposure_policy"],
       "properties": {
         "id": {"const": "execution-v2.1"},
-        "version": {"const": "2.1.0"},
+        "version": {"const": "2.1.1"},
         "protocol_version": {"const": "protocol-v2.1"},
         "frozen": {"const": true},
         "exposure_policy": {"const": "shared-seeded-v2.1"}
@@ -25,12 +25,12 @@
       "required": ["source_catalog", "split_manifest", "catalog", "units", "raw", "manifests", "reports"],
       "properties": {
         "source_catalog": {"const": "data/filmes.json"},
-        "split_manifest": {"const": "results/v2_1/manifests/splits/movie_id_split.json"},
-        "catalog": {"const": "results/v2_1/derived/test_catalog.json"},
-        "units": {"const": "results/v2_1/units"},
-        "raw": {"const": "results/v2_1/raw"},
-        "manifests": {"const": "results/v2_1/manifests/executions"},
-        "reports": {"const": "results/v2_1/reports"}
+        "split_manifest": {"const": "results/v2_1/revision_2/manifests/splits/movie_id_split.json"},
+        "catalog": {"const": "results/v2_1/revision_2/derived/test_catalog.json"},
+        "units": {"const": "results/v2_1/revision_2/units"},
+        "raw": {"const": "results/v2_1/revision_2/raw"},
+        "manifests": {"const": "results/v2_1/revision_2/manifests/executions"},
+        "reports": {"const": "results/v2_1/revision_2/reports"}
       }
     }
   }

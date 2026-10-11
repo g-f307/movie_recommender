@@ -64,9 +64,9 @@ class V2ExperimentConfigTests(unittest.TestCase):
 
         self.assertEqual(validation.protocol_version, "protocol-v2.1")
         self.assertEqual(validation.execution.execution_id, "execution-v2.1")
-        self.assertEqual(validation.execution.paths["raw"], "results/v2_1/raw")
-        self.assertEqual(validation.output_root, "results/v2_1/raw/validation")
-        self.assertEqual(holdout.output_root, "results/v2_1/raw/holdout")
+        self.assertEqual(validation.execution.paths["raw"], "results/v2_1/revision_2/raw")
+        self.assertEqual(validation.output_root, "results/v2_1/revision_2/raw/validation")
+        self.assertEqual(holdout.output_root, "results/v2_1/revision_2/raw/holdout")
         self.assertNotEqual(validation.execution.sha256, load_v2_experiment_plan().execution.sha256)
 
     @staticmethod

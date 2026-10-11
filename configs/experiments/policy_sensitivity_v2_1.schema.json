@@ -6,11 +6,11 @@
   "additionalProperties": false,
   "required": ["version", "frozen", "execution_id", "partition", "validation_output_root", "primary_metric", "selection", "scenarios"],
   "properties": {
-    "version": {"const": "2.1"},
+    "version": {"const": "2.1.1"},
     "frozen": {"const": true},
     "execution_id": {"const": "execution-v2.1"},
     "partition": {"const": "validation"},
-    "validation_output_root": {"const": "results/v2_1/validation/policy_sensitivity"},
+    "validation_output_root": {"const": "results/v2_1/revision_2/validation/policy_sensitivity"},
     "primary_metric": {"const": "ndcg_at_5"},
     "selection": {
       "type": "object", "additionalProperties": false,
