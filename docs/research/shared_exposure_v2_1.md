@@ -50,7 +50,10 @@ validar os artefatos v2.0 ou a tentativa v2.1 anterior.
   antes de uma diferença B5 − B4 ser analisada.
 
 `write_units` grava um único arquivo em
-`results/v2_1/revision_2/units/<exposure_id>.json`. Esse arquivo contém a
+`results/v2_1/revision_2/units/<materialization_id>.json`. Em validation, esse
+identificador equivale a `exposure_id`; no holdout, ele também incorpora a
+identidade da seleção congelada. Assim, duas execuções com seleções distintas
+não tentam reutilizar metadados de célula incompatíveis. Esse arquivo contém a
 trajetória, seu SHA-256, sua auditoria, os `comparison_id` de S0–S6 e as
 unidades derivadas por método e cenário. O runner recusa o arquivo se a célula
 solicitada não pertencer a essa exposição ou se candidatos, relevâncias e hash

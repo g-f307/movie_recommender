@@ -28,6 +28,11 @@ candidatos, relevâncias e hash de trajetória divergentes. O mesmo hash entra n
 auditoria de checkpoints e na análise selada, impedindo que uma divergência
 silenciosa seja tratada como par válido.
 
+O nome do arquivo usa `materialization_id`: em validation ele é o próprio
+`exposure_id`; no holdout, também inclui a seleção congelada. A trajetória
+causal permanece definida por `exposure_id`, enquanto o arquivo não colide com
+uma execução anterior que tenha escolhido outro cenário.
+
 As unidades normalizam `latency_ms` para `0.0` dentro das trajetórias
 serializadas. Esse valor é telemetria dependente da máquina e não participa da
 relevância, da política de feedback ou do pareamento; mantê-lo impediria a
