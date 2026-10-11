@@ -72,6 +72,11 @@ python -m cinebot_ml.experiments.v2_config list --partition holdout \
 Depois que as unidades e o runner forem implementados, será possível auditar os
 checkpoints e finalizar sem sobrescrever o manifesto:
 
+O runner de células e seus requisitos de proveniência são documentados em
+[`v2_cell_runner.md`](v2_cell_runner.md). A orquestração completa continua
+separada: a validação deve terminar e congelar a seleção antes da abertura do
+holdout.
+
 ```bash
 python -m cinebot_ml.experiments.execution audit \
   --spec configs/experiments/execution_v2.yaml \
