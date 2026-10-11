@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/g-f307/movie_recommender/configs/experiments/closed_loop_v2.schema.json",
+  "title": "Movie Recommender closed-loop exposure v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "frozen", "protocol_version", "exposure_policy", "conditions", "full_history_events", "logical_clock_step_seconds", "selection", "exhaustion", "pairing"],
+  "properties": {
+    "version": {"type": "string", "pattern": "^2\\."},
+    "frozen": {"const": true},
+    "protocol_version": {"const": "protocol-v2.0"},
+    "exposure_policy": {"const": "closed-loop-v2"},
+    "conditions": {
+      "type": "object", "additionalProperties": false,
+      "required": ["C0", "C1", "C2", "C3", "C4", "C5"],
+      "properties": {
+        "C0": {"const": 0}, "C1": {"const": 1}, "C2": {"const": 3},
+        "C3": {"const": 5}, "C4": {"const": 10}, "C5": {"const": "all"}
+      }
+    },
+    "full_history_events": {"const": 15},
+    "logical_clock_step_seconds": {"type": "integer", "minimum": 1},
+    "selection": {
+      "type": "object", "additionalProperties": false,
+      "required": ["rank", "tie_breaker"],
+      "properties": {"rank": {"const": 1}, "tie_breaker": {"const": "canonical_movie_id"}}
+    },
+    "exhaustion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status"], "properties": {"status": {"const": "exhausted"}}
+    },
+    "pairing": {
+      "type": "object", "additionalProperties": false,
+      "required": ["methods", "fields"],
+      "properties": {
+        "methods": {"const": ["B4", "B5"]},
+        "fields": {"const": ["agent_id", "persona", "seed", "condition", "profile", "k", "protocol_version"]}
+      }
+    }
+  }
+}

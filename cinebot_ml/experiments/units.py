@@ -15,6 +15,11 @@ from cinebot_ml.dataset import load_catalog
 from cinebot_ml.experiment_config import sha256_file
 from cinebot_ml.experimental_splits import reconstruct_assignments
 from cinebot_ml.experiments.cold_start import profile_payload
+from cinebot_ml.experiments.closed_loop import (
+    ClosedLoopExposureConfig,
+    audit_closed_loop_trajectory,
+    load_closed_loop_exposure_config,
+)
 from cinebot_ml.experiments.execution import (
     ExecutionSpec,
     ExecutionSpecError,
@@ -32,7 +37,11 @@ from cinebot_ml.simulation.agents import (
     load_profile_observation_config,
     profile_observation_manifest,
 )
-from cinebot_ml.simulation.temporal import load_simulation_config
+from cinebot_ml.simulation.temporal import (
+    SimulationScenario,
+    TemporalSimulator,
+    load_simulation_config,
+)
 
 
 HOLDOUT_CONFIG = PROJECT_ROOT / "configs/experiment_v1_holdout.yaml"
@@ -96,7 +105,7 @@ def _unit(
 ) -> dict:
     if exposure_policy != "neutral-exposure-v1":
         raise ExecutionSpecError(
-            "A geração de unidades para exposição fechada será implementada na issue #87."
+            "A exposição fechada v2 exige write_units com uma especificação de execução versionada."
         )
     agent = build_agent(cell.persona, cell.seed, catalog)
     declared_preference = (
@@ -173,6 +182,138 @@ def _unit(
     return result
 
 
+def _safe_catalog(catalog: list[dict]) -> list[dict]:
+    """Remove termos bloqueados antes de qualquer atualização de afinidade."""
+    safe = []
+    for movie in catalog:
+        normalized = dict(movie)
+        normalized["palavras_chave"] = [
+            term for term in movie.get("palavras_chave", []) or []
+            if not any(marker in str(term).lower() for marker in PRIVATE_MARKERS)
+        ]
+        normalized["sinopse"] = " ".join(
+            word for word in str(movie.get("sinopse") or "").split()
+            if not any(marker in word.lower() for marker in PRIVATE_MARKERS)
+        )
+        safe.append(normalized)
+    return safe
+
+
+def _closed_loop_unit(
+    cell: ExperimentCell,
+    catalog: list[dict],
+    catalog_sha256: str,
+    *,
+    catalog_path: str,
+    exposure_config: ClosedLoopExposureConfig,
+    profile_observation_config: ProfileObservationConfig | None,
+) -> dict:
+    if cell.method not in exposure_config.paired_methods:
+        raise ExecutionSpecError("A exposição fechada v2 aceita somente os métodos pareados B4 e B5.")
+    safe_catalog = _safe_catalog(catalog)
+    agent = build_agent(cell.persona, cell.seed, safe_catalog)
+    declared_preference = (
+        build_declared_preference(agent, profile_observation_config)
+        if profile_observation_config is not None
+        else None
+    )
+    initial = StateSnapshot(
+        UserState(
+            agent.agent_id,
+            "synthetic",
+            _time(0),
+            initial_profile=profile_payload(declared_preference or agent, cell.profile),
+        ),
+        provenance=(
+            profile_observation_manifest(agent, declared_preference)
+            if declared_preference is not None
+            else {}
+        ),
+    )
+    scenario = SimulationScenario(
+        cell.method,
+        cell.condition,
+        cell.profile,
+        cell.seed,
+        cell.k,
+        catalog_path,
+        catalog_sha256,
+        initial,
+        _time(0),
+        experiment_id="movie-recommender-acm-sac-2027",
+    )
+    simulator = TemporalSimulator(safe_catalog, exposure_config.as_simulation_config())
+    trajectory = simulator.run(scenario, agent)
+    audit = audit_closed_loop_trajectory(trajectory, exposure_config)
+    if not audit["complete"]:
+        raise ExecutionSpecError(f"Auditoria causal falhou: {audit['failures'][0]['reason']}")
+    if trajectory.status == "failed" or trajectory.final_ranking is None:
+        raise ExecutionSpecError("A trajetória fechada falhou antes do ranking de avaliação.")
+    _, candidates = simulator._rank(
+        scenario,
+        trajectory.final_snapshot,
+        trajectory.final_ranking.logical_timestamp,
+    )
+    request = candidates.attach_to_request(
+        simulator._request(
+            scenario,
+            trajectory.final_snapshot,
+            trajectory.final_ranking.logical_timestamp,
+        )
+    )
+    judgments = [
+        {
+            "movie_id": movie["id"],
+            "value": agent.evaluate(movie, len(trajectory.steps)).graded_relevance,
+        }
+        for movie in candidates.movies
+    ]
+    pairing_key = {
+        "agent_id": agent.agent_id,
+        "persona": cell.persona,
+        "seed": cell.seed,
+        "condition": cell.condition,
+        "profile": cell.profile,
+        "k": cell.k,
+        "protocol_version": exposure_config.protocol_version,
+    }
+    result = {
+        "exposure_policy": "closed-loop-v2",
+        "exposure_manifest": exposure_config.manifest(),
+        "pairing": {
+            "pairing_id": hashlib.sha256(
+                json.dumps(pairing_key, sort_keys=True).encode("utf-8")
+            ).hexdigest()[:24],
+            "key": pairing_key,
+            "method": cell.method,
+        },
+        "trajectory": trajectory.to_dict(),
+        "trajectory_audit": audit,
+        "relevance_source": "synthetic_user",
+        "relevance_version": "closed-loop-v2",
+        "units": [
+            {
+                "request": request.to_dict(),
+                "relevance": judgments,
+                "complete": True,
+                "initial_snapshot": initial.to_dict(),
+                "state_snapshot": trajectory.final_snapshot.to_dict(),
+                "agent_id": agent.agent_id,
+                "persona": cell.persona,
+                "agent_version": agent.config.version,
+                "simulation_id": trajectory.simulation_id,
+                "interaction": len(trajectory.steps),
+                "state_version": trajectory.final_snapshot.state.version,
+            }
+        ],
+    }
+    if declared_preference is not None:
+        result["profile_observation"] = profile_observation_manifest(
+            agent, declared_preference
+        )
+    return result
+
+
 def write_units(
     matrix: ExperimentMatrix,
     catalog: list[dict],
@@ -184,6 +325,7 @@ def write_units(
     catalog_path = "results/derived/test_catalog.json"
     exposure_policy = "neutral-exposure-v1"
     profile_observation_config: ProfileObservationConfig | None = None
+    closed_loop_config: ClosedLoopExposureConfig | None = None
     if execution_spec is not None:
         validate_matrix_execution(matrix, execution_spec)
         if output.resolve() != execution_spec.resolve_path("units"):
@@ -194,24 +336,49 @@ def write_units(
             profile_observation_config = load_profile_observation_config(
                 execution_spec.resolve_path("profile_observation_config")
             )
-        if exposure_policy != "neutral-exposure-v1":
-            raise ExecutionSpecError(
-                "A geração de unidades para exposição fechada será implementada na issue #87."
+        if exposure_policy == "closed-loop-v2":
+            closed_loop_config = (
+                load_closed_loop_exposure_config(
+                    execution_spec.resolve_path("closed_loop_config")
+                )
+                if execution_spec.closed_loop_config is not None
+                else load_closed_loop_exposure_config()
             )
-    unique = {cell.comparison_id: cell for cell in matrix.cells}
-    output.mkdir(parents=True, exist_ok=True)
-    for comparison_id, cell in sorted(unique.items()):
-        path = output / f"{comparison_id}.json"
-        encoded = json.dumps(_unit(
-            cell, catalog, catalog_sha256, catalog_path=catalog_path,
-            exposure_policy=exposure_policy,
-            profile_observation_config=profile_observation_config,
-        ),
+        elif exposure_policy != "neutral-exposure-v1":
+            raise ExecutionSpecError(f"Política de exposição desconhecida: {exposure_policy}")
+    unique = (
+        {cell.cell_id: cell for cell in matrix.cells}
+        if exposure_policy == "closed-loop-v2"
+        else {cell.comparison_id: cell for cell in matrix.cells}
+    )
+    for unit_id, cell in sorted(unique.items()):
+        path = output / f"{unit_id}.json"
+        payload = (
+            _closed_loop_unit(
+                cell,
+                catalog,
+                catalog_sha256,
+                catalog_path=catalog_path,
+                exposure_config=closed_loop_config,
+                profile_observation_config=profile_observation_config,
+            )
+            if closed_loop_config is not None
+            else _unit(
+                cell,
+                catalog,
+                catalog_sha256,
+                catalog_path=catalog_path,
+                exposure_policy=exposure_policy,
+                profile_observation_config=profile_observation_config,
+            )
+        )
+        encoded = json.dumps(payload,
                              ensure_ascii=False, sort_keys=True) + "\n"
         if path.exists():
             if path.read_text(encoding="utf-8") != encoded:
                 raise FileExistsError(f"Unidade divergente já existente: {path}")
             continue
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(encoded, encoding="utf-8")
     return len(unique)
 

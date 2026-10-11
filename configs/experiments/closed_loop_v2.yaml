@@ -1,0 +1,21 @@
+version: "2.0"
+frozen: true
+protocol_version: protocol-v2.0
+exposure_policy: closed-loop-v2
+conditions:
+  C0: 0
+  C1: 1
+  C2: 3
+  C3: 5
+  C4: 10
+  C5: all
+full_history_events: 15
+logical_clock_step_seconds: 2
+selection:
+  rank: 1
+  tie_breaker: canonical_movie_id
+exhaustion:
+  status: exhausted
+pairing:
+  methods: [B4, B5]
+  fields: [agent_id, persona, seed, condition, profile, k, protocol_version]
