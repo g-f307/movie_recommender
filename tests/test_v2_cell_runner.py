@@ -79,6 +79,7 @@ class V2CellRunnerTests(unittest.TestCase):
             )
 
         self.assertEqual(result["individual"]["method"], "B4")
+        self.assertEqual(result["individual"]["run"], 1)
         self.assertEqual(result["individual"]["partition"], "validation")
         self.assertEqual(result["individual"]["policy_scenario_id"], "S0")
         self.assertEqual(result["partition"], "validation")

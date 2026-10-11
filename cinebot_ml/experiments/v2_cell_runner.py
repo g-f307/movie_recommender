@@ -134,6 +134,7 @@ def run_v2_cell(
     individual = report.individual[0]
     individual_payload = individual.to_dict()
     individual_payload.update({
+        "run": cell.run,
         "partition": cell.partition,
         "policy_scenario_id": cell.policy_scenario_id,
         "policy_scenario_hash": cell.policy_scenario_hash,
