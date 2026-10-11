@@ -25,6 +25,12 @@ ou palavras-chave por atributos indiretos. P5 recebe uma cópia do estado causal
 produzido antes do ranking avaliado; eventos futuros continuam proibidos pelo
 contrato temporal.
 
+Na execução v2, o mesmo esquema P0--P5 é aplicado a um perfil declarado
+observável, e não à preferência latente do agente. A política de ruído, as
+identidades das duas representações e a proveniência dos snapshots estão em
+[`profile_observation_v2.md`](profile_observation_v2.md). A compatibilidade da
+v1.1 é mantida quando não há perfil declarado informado.
+
 ## Pareamento
 
 Uma trajetória de referência é produzida uma vez para o mesmo agente, persona e

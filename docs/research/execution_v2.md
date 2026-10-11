@@ -12,7 +12,10 @@ fechado será implementada na issue #87.
 
 `configs/experiments/execution_v2.yaml` descreve a execução `execution-v2` e
 seu lock registra o SHA-256 exato do arquivo. A carga falha antes de criar
-artefatos se o schema, o lock ou os caminhos forem inválidos.
+artefatos se o schema, o lock ou os caminhos forem inválidos. A especificação
+também referencia a configuração congelada de perfil declarado v2; ela é um
+insumo auditável, não uma saída e não permite que B4/B5 acessem a preferência
+latente.
 
 As saídas ficam abaixo de `results/v2/`:
 
