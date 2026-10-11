@@ -19,6 +19,10 @@ em ciclo fechado v2. Ambas são insumos auditáveis, não saídas. O perfil
 declarado não permite que B4/B5 acessem a preferência latente e a política de
 exposição registra o ranking que originou cada evento de feedback.
 
+A matriz de sensibilidade também é um insumo separado. Ela varia parâmetros de
+B5 exclusivamente na validação v2 e exige uma seleção congelada antes de abrir
+qualquer holdout v2. Os arquivos v1 continuam imutáveis durante esse processo.
+
 As saídas ficam abaixo de `results/v2/`:
 
 ```text
