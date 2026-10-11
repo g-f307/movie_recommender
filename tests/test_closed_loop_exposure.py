@@ -7,6 +7,8 @@ from pathlib import Path
 
 from cinebot_ml.experiments.closed_loop import (
     DEFAULT_CLOSED_LOOP_CONFIG_PATH,
+    DEFAULT_V2_1_CLOSED_LOOP_CONFIG_PATH,
+    DEFAULT_V2_1_CLOSED_LOOP_SCHEMA_PATH,
     ClosedLoopExposureError,
     audit_closed_loop_trajectory,
     load_closed_loop_exposure_config,
@@ -35,6 +37,23 @@ def catalog():
 
 
 class ClosedLoopExposureTests(unittest.TestCase):
+    def test_v2_1_declara_exposicao_compartilhada_independente_do_metodo(self):
+        config = load_closed_loop_exposure_config(
+            DEFAULT_V2_1_CLOSED_LOOP_CONFIG_PATH,
+            schema_path=DEFAULT_V2_1_CLOSED_LOOP_SCHEMA_PATH,
+        )
+
+        self.assertEqual(config.protocol_version, "protocol-v2.1")
+        self.assertEqual(config.exposure_policy, "shared-seeded-v2.1")
+        self.assertEqual(
+            config.manifest()["shared_exposure"],
+            {
+                "method_independent": True,
+                "order": "seeded_canonical_permutation",
+                "seed_scope": "comparison_id",
+            },
+        )
+
     def test_configuracao_fechada_exige_lock_compativel(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "closed_loop_v2.yaml"

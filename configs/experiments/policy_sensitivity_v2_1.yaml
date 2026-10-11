@@ -1,0 +1,38 @@
+version: "2.1"
+frozen: true
+execution_id: execution-v2.1
+partition: validation
+validation_output_root: results/v2_1/validation/policy_sensitivity
+primary_metric: ndcg_at_5
+selection:
+  policy: highest_mean_ndcg_at_5_then_scenario_id
+  holdout_used: false
+scenarios:
+  S0:
+    learning_rate: 0.25
+    decay: 0.95
+    feedback_adjustment_weight: 0.50
+  S1:
+    learning_rate: 0.10
+    decay: 0.95
+    feedback_adjustment_weight: 0.50
+  S2:
+    learning_rate: 0.40
+    decay: 0.95
+    feedback_adjustment_weight: 0.50
+  S3:
+    learning_rate: 0.25
+    decay: 0.80
+    feedback_adjustment_weight: 0.50
+  S4:
+    learning_rate: 0.25
+    decay: 1.00
+    feedback_adjustment_weight: 0.50
+  S5:
+    learning_rate: 0.25
+    decay: 0.95
+    feedback_adjustment_weight: 0.25
+  S6:
+    learning_rate: 0.25
+    decay: 0.95
+    feedback_adjustment_weight: 0.75

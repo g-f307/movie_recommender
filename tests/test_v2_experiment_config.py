@@ -13,15 +13,53 @@ from cinebot_ml.experiments.policy_sensitivity import (
     select_validation_scenario,
 )
 from cinebot_ml.experiments.v2_config import (
+    DEFAULT_V2_1_HOLDOUT_CONFIG_PATH,
+    DEFAULT_V2_1_HOLDOUT_SCHEMA_PATH,
+    DEFAULT_V2_1_MATRIX_CONFIG_PATH,
+    DEFAULT_V2_1_MATRIX_SCHEMA_PATH,
+    DEFAULT_V2_1_VALIDATION_CONFIG_PATH,
+    DEFAULT_V2_1_VALIDATION_SCHEMA_PATH,
     DEFAULT_V2_HOLDOUT_CONFIG_PATH,
     DEFAULT_V2_VALIDATION_CONFIG_PATH,
     V2ExperimentConfigError,
     build_v2_experiment_matrix,
     load_v2_experiment_plan,
 )
+from cinebot_ml.experiments.execution import (
+    DEFAULT_V2_1_EXECUTION_SCHEMA_PATH,
+    DEFAULT_V2_1_EXECUTION_SPEC_PATH,
+)
+from cinebot_ml.experiments.policy_sensitivity import DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH
 
 
 class V2ExperimentConfigTests(unittest.TestCase):
+    def test_v2_1_isolates_shared_exposure_outputs_and_identities(self):
+        validation = load_v2_experiment_plan(
+            DEFAULT_V2_1_VALIDATION_CONFIG_PATH,
+            config_schema_path=DEFAULT_V2_1_VALIDATION_SCHEMA_PATH,
+            matrix_config_path=DEFAULT_V2_1_MATRIX_CONFIG_PATH,
+            matrix_schema_path=DEFAULT_V2_1_MATRIX_SCHEMA_PATH,
+            execution_spec_path=DEFAULT_V2_1_EXECUTION_SPEC_PATH,
+            execution_schema_path=DEFAULT_V2_1_EXECUTION_SCHEMA_PATH,
+            policy_sensitivity_schema_path=DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
+        )
+        holdout = load_v2_experiment_plan(
+            DEFAULT_V2_1_HOLDOUT_CONFIG_PATH,
+            config_schema_path=DEFAULT_V2_1_HOLDOUT_SCHEMA_PATH,
+            matrix_config_path=DEFAULT_V2_1_MATRIX_CONFIG_PATH,
+            matrix_schema_path=DEFAULT_V2_1_MATRIX_SCHEMA_PATH,
+            execution_spec_path=DEFAULT_V2_1_EXECUTION_SPEC_PATH,
+            execution_schema_path=DEFAULT_V2_1_EXECUTION_SCHEMA_PATH,
+            policy_sensitivity_schema_path=DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
+        )
+
+        self.assertEqual(validation.protocol_version, "protocol-v2.1")
+        self.assertEqual(validation.execution.execution_id, "execution-v2.1")
+        self.assertEqual(validation.execution.paths["raw"], "results/v2_1/raw")
+        self.assertEqual(validation.output_root, "results/v2_1/raw/validation")
+        self.assertEqual(holdout.output_root, "results/v2_1/raw/holdout")
+        self.assertNotEqual(validation.execution.sha256, load_v2_experiment_plan().execution.sha256)
+
     @staticmethod
     def _validation_selection():
         sensitivity = load_policy_sensitivity_config()
