@@ -85,6 +85,12 @@ class ExperimentReadinessTests(unittest.TestCase):
         self.assertTrue(checks)
         self.assertEqual({check.status for check in checks}, {"ok"})
 
+    def test_prontidao_inclui_contratos_v2_de_exposicao_e_sensibilidade(self):
+        checks = run_readiness("ci")
+        config_check = next(check for check in checks if check.name == "configs")
+
+        self.assertEqual(config_check.detail, "20 configurações, schemas e locks validados")
+
     def test_execucao_sem_env_real(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(main(["ci", "--json"]), 0)

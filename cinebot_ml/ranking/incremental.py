@@ -97,8 +97,15 @@ def _values(movie: Mapping[str, Any]) -> dict[str, tuple[str, ...]]:
 
 class IncrementalRecommender:
     method = "B5"
-    def __init__(self, candidates: CandidateSet, state: StateSnapshot, config_path: Path = DEFAULT_B5_CONFIG_PATH):
-        self.candidates, self.state, self.config = candidates, state, load_incremental_config(config_path)
+    def __init__(
+        self,
+        candidates: CandidateSet,
+        state: StateSnapshot,
+        config_path: Path = DEFAULT_B5_CONFIG_PATH,
+        *,
+        config: IncrementalConfig | None = None,
+    ):
+        self.candidates, self.state, self.config = candidates, state, config or load_incremental_config(config_path)
         self.method_version = self.config.version
         b4 = load_static_personalized_config(self.config.initial_profile_config)
         self._content_config = b4.as_content_config()

@@ -61,6 +61,9 @@ def _config_check() -> str:
     from cinebot_ml.experiments.convergence import load_convergence_config
     from cinebot_ml.experiments.ablation import load_ablation_variants
     from cinebot_ml.experiments.robustness import load_robustness_config
+    from cinebot_ml.experiments.closed_loop import load_closed_loop_exposure_config
+    from cinebot_ml.experiments.execution import load_execution_spec
+    from cinebot_ml.experiments.policy_sensitivity import load_policy_sensitivity_config
     from cinebot_ml.personalization import load_profile_update_config
     from cinebot_ml.ranking import (
         load_content_config,
@@ -70,7 +73,11 @@ def _config_check() -> str:
         load_supervised_config,
         load_tfidf_config,
     )
-    from cinebot_ml.simulation import load_agent_config, load_simulation_config
+    from cinebot_ml.simulation import (
+        load_agent_config,
+        load_profile_observation_config,
+        load_simulation_config,
+    )
 
     loaders = (
         load_config,
@@ -92,7 +99,11 @@ def _config_check() -> str:
     load_convergence_config()
     load_ablation_variants()
     load_robustness_config()
-    return f"{len(loaders) + 6} configurações, schemas e locks validados"
+    load_execution_spec()
+    load_profile_observation_config()
+    load_closed_loop_exposure_config()
+    load_policy_sensitivity_config()
+    return f"{len(loaders) + 10} configurações, schemas e locks validados"
 
 
 def _tracked_inputs_check() -> str:

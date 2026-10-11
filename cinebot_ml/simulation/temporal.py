@@ -216,17 +216,29 @@ Checkpoint = Callable[[SimulationResult], None]
 class TemporalSimulator:
     """Coordena ranking, feedback e atualização sem acesso a eventos futuros."""
 
-    def __init__(self, catalog: Sequence[Mapping[str, Any]], config: SimulationConfig | None = None):
+    def __init__(
+        self,
+        catalog: Sequence[Mapping[str, Any]],
+        config: SimulationConfig | None = None,
+        *,
+        profile_updater: ProfileUpdater | None = None,
+        incremental_config: Any | None = None,
+    ):
         self.catalog = tuple(dict(movie) for movie in catalog)
         self.config = config or load_simulation_config()
-        self.updater = ProfileUpdater()
+        self.updater = profile_updater or ProfileUpdater()
+        self.incremental_config = incremental_config
 
     def _request(self, scenario: SimulationScenario, snapshot: StateSnapshot, logical_time: str) -> RecommendationRequest:
         state = snapshot.state
         version = (
             load_static_personalized_config().version
             if scenario.method == "B4"
-            else load_incremental_config().version
+            else (
+                self.incremental_config.version
+                if self.incremental_config is not None
+                else load_incremental_config().version
+            )
         )
         history = tuple(event.to_dict() for event in state.history)
         return RecommendationRequest(
@@ -258,7 +270,9 @@ class TemporalSimulator:
         if scenario.method == "B4":
             recommender = StaticPersonalizedRecommender(candidates, scenario.initial_state.state)
         else:
-            recommender = IncrementalRecommender(candidates, snapshot)
+            recommender = IncrementalRecommender(
+                candidates, snapshot, config=self.incremental_config
+            )
         return recommender.recommend(request), candidates
 
     def _manifest(self, scenario: SimulationScenario, agent: SyntheticAgent) -> dict[str, Any]:
