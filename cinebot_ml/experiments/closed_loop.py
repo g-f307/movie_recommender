@@ -183,8 +183,8 @@ def audit_shared_exposure_trajectory(
         failures.append({"reason": "unexpected_exposure_policy"})
     if trajectory.get("exposure_policy") != config.exposure_policy:
         failures.append({"reason": "exposure_policy_mismatch"})
-    if not trajectory.get("comparison_id"):
-        failures.append({"reason": "comparison_id_missing"})
+    if not trajectory.get("exposure_id"):
+        failures.append({"reason": "exposure_id_missing"})
     if "method" in trajectory:
         failures.append({"reason": "method_dependent_trajectory"})
     target = config.events_for(str(trajectory.get("condition", "")))

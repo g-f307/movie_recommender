@@ -46,7 +46,7 @@ def _load_unit(
     execution_spec: ExecutionSpec,
 ) -> tuple[dict[str, Any], Mapping[str, Any]]:
     shared = execution_spec.exposure_policy == "shared-seeded-v2.1"
-    path = units_root / f"{cell.comparison_id if shared else cell.cell_id}.json"
+    path = units_root / f"{cell.exposure_id if shared else cell.cell_id}.json"
     if not path.is_file():
         raise MatrixValidationError(f"Unidade v2 ausente: {path}")
     try:
@@ -75,8 +75,13 @@ def _load_unit(
     if payload.get("trajectory_audit", {}).get("complete") is not True:
         raise MatrixValidationError("A unidade v2 não possui auditoria causal aprovada.")
     pairing = payload.get("pairing", {})
+    shared_pairing_valid = (
+        pairing.get("exposure_id") == cell.exposure_id
+        and cell.comparison_id in pairing.get("comparison_ids", [])
+        and pairing.get("cell_ids", {}).get(cell.comparison_id, {}).get(cell.method) == cell.cell_id
+    )
     if not pairing.get("pairing_id") or (
-        shared and pairing.get("comparison_id") != cell.comparison_id
+        shared and not shared_pairing_valid
     ) or (not shared and pairing.get("method") != cell.method):
         raise MatrixValidationError("A unidade v2 não possui pareamento compatível.")
     return payload, unit

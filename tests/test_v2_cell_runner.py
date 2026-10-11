@@ -78,7 +78,8 @@ class V2CellRunnerTests(unittest.TestCase):
             profile_observation_config=load_profile_observation_config(),
         )
 
-        self.assertEqual(payload["pairing"]["comparison_id"], b4.comparison_id)
+        self.assertEqual(payload["pairing"]["exposure_id"], b4.exposure_id)
+        self.assertEqual(payload["pairing"]["comparison_ids"], [b4.comparison_id])
         self.assertNotIn("method", payload["trajectory"])
         self.assertTrue(payload["trajectory_audit"]["complete"])
         self.assertEqual(
@@ -91,6 +92,48 @@ class V2CellRunnerTests(unittest.TestCase):
         )
         self.assertEqual(payload["method_units"]["B4"]["trajectory_sha256"], payload["trajectory_sha256"])
         self.assertEqual(payload["method_units"]["B5"]["trajectory_sha256"], payload["trajectory_sha256"])
+
+    def test_v2_1_reuses_one_trajectory_across_policy_scenarios(self):
+        spec = load_execution_spec(
+            DEFAULT_V2_1_EXECUTION_SPEC_PATH,
+            schema_path=DEFAULT_V2_1_EXECUTION_SCHEMA_PATH,
+        )
+        sensitivity = load_policy_sensitivity_config(
+            DEFAULT_V2_1_POLICY_SENSITIVITY_CONFIG_PATH,
+            schema_path=DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
+        )
+        cells = []
+        for scenario in sensitivity.scenarios[:2]:
+            common = {
+                "execution_id": spec.execution_id,
+                "execution_config_sha256": spec.sha256,
+                "partition": "validation",
+                "policy_scenario_id": scenario.scenario_id,
+                "policy_scenario_hash": scenario.scenario_hash,
+            }
+            cells.extend((
+                ExperimentCell("B4", "C3", "P2", "consistent", 42, 5, **common),
+                ExperimentCell("B5", "C3", "P2", "consistent", 42, 5, **common),
+            ))
+
+        payload = _shared_exposure_pair(
+            cells,
+            catalog(),
+            "a" * 64,
+            catalog_path="fixtures/v2_1_catalog.json",
+            exposure_config=load_closed_loop_exposure_config(
+                DEFAULT_V2_1_CLOSED_LOOP_CONFIG_PATH,
+                schema_path=DEFAULT_V2_1_CLOSED_LOOP_SCHEMA_PATH,
+            ),
+            profile_observation_config=load_profile_observation_config(),
+        )
+
+        self.assertEqual(payload["pairing"]["exposure_id"], cells[0].exposure_id)
+        self.assertEqual(
+            payload["pairing"]["comparison_ids"],
+            sorted({cell.comparison_id for cell in cells}),
+        )
+        self.assertEqual(payload["trajectory"]["exposure_id"], cells[0].exposure_id)
 
     def test_v2_1_shared_trajectory_respects_every_history_condition(self):
         spec = load_execution_spec(
@@ -129,7 +172,7 @@ class V2CellRunnerTests(unittest.TestCase):
 
         self.assertEqual(observed, {"C0": 0, "C1": 1, "C2": 3, "C3": 5, "C4": 10, "C5": 15})
 
-    def test_v2_1_runner_loads_the_shared_pair_and_preserves_signatures(self):
+    def test_v2_1_runner_preserves_shared_evidence_across_policy_scenarios(self):
         spec = load_execution_spec(
             DEFAULT_V2_1_EXECUTION_SPEC_PATH,
             schema_path=DEFAULT_V2_1_EXECUTION_SCHEMA_PATH,
@@ -138,18 +181,21 @@ class V2CellRunnerTests(unittest.TestCase):
             DEFAULT_V2_1_POLICY_SENSITIVITY_CONFIG_PATH,
             schema_path=DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
         )
-        scenario = sensitivity.scenarios[0]
-        common = {
-            "execution_id": spec.execution_id,
-            "execution_config_sha256": spec.sha256,
-            "partition": "validation",
-            "policy_scenario_id": scenario.scenario_id,
-            "policy_scenario_hash": scenario.scenario_hash,
-        }
-        b4 = ExperimentCell("B4", "C2", "P2", "consistent", 42, 5, **common)
-        b5 = ExperimentCell("B5", "C2", "P2", "consistent", 42, 5, **common)
+        cells = []
+        for scenario in sensitivity.scenarios[:2]:
+            common = {
+                "execution_id": spec.execution_id,
+                "execution_config_sha256": spec.sha256,
+                "partition": "validation",
+                "policy_scenario_id": scenario.scenario_id,
+                "policy_scenario_hash": scenario.scenario_hash,
+            }
+            cells.extend((
+                ExperimentCell("B4", "C2", "P2", "consistent", 42, 5, **common),
+                ExperimentCell("B5", "C2", "P2", "consistent", 42, 5, **common),
+            ))
         payload = _shared_exposure_pair(
-            (b4, b5),
+            cells,
             catalog(),
             "a" * 64,
             catalog_path="fixtures/v2_1_catalog.json",
@@ -161,38 +207,44 @@ class V2CellRunnerTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / f"{b4.comparison_id}.json").write_text(json.dumps(payload), encoding="utf-8")
+            (root / f"{cells[0].exposure_id}.json").write_text(json.dumps(payload), encoding="utf-8")
             source = root / "catalog.json"
             source.write_text(json.dumps({"perfis": {"drama": catalog()}}), encoding="utf-8")
-            result_b4 = run_v2_cell(b4, execution_spec=spec, units_root=root, catalog_path=source)
-            result_b5 = run_v2_cell(b5, execution_spec=spec, units_root=root, catalog_path=source)
+            results = [
+                run_v2_cell(cell, execution_spec=spec, units_root=root, catalog_path=source)
+                for cell in cells
+            ]
 
-        self.assertEqual(result_b4["candidate_set_id"], result_b5["candidate_set_id"])
-        self.assertEqual(result_b4["relevance_id"], result_b5["relevance_id"])
-        self.assertEqual(result_b4["trajectory_sha256"], result_b5["trajectory_sha256"])
-        self.assertEqual(result_b4["pairing"]["comparison_id"], b4.comparison_id)
+        self.assertEqual({result["candidate_set_id"] for result in results}, {results[0]["candidate_set_id"]})
+        self.assertEqual({result["relevance_id"] for result in results}, {results[0]["relevance_id"]})
+        self.assertEqual({result["trajectory_sha256"] for result in results}, {results[0]["trajectory_sha256"]})
+        self.assertEqual({result["pairing"]["exposure_id"] for result in results}, {cells[0].exposure_id})
 
-    def test_v2_1_materializes_one_file_per_comparison_not_per_method(self):
+    def test_v2_1_materializes_one_file_per_exposure_not_per_scenario_or_method(self):
         base_spec = load_execution_spec(
             DEFAULT_V2_1_EXECUTION_SPEC_PATH,
             schema_path=DEFAULT_V2_1_EXECUTION_SCHEMA_PATH,
         )
-        scenario = load_policy_sensitivity_config(
+        scenarios = load_policy_sensitivity_config(
             DEFAULT_V2_1_POLICY_SENSITIVITY_CONFIG_PATH,
             schema_path=DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
-        ).scenarios[0]
-        common = {
-            "execution_id": base_spec.execution_id,
-            "execution_config_sha256": base_spec.sha256,
-            "partition": "validation",
-            "policy_scenario_id": scenario.scenario_id,
-            "policy_scenario_hash": scenario.scenario_hash,
-        }
-        b4 = ExperimentCell("B4", "C1", "P2", "consistent", 42, 5, **common)
-        b5 = ExperimentCell("B5", "C1", "P2", "consistent", 42, 5, **common)
+        ).scenarios[:2]
+        cells = []
+        for scenario in scenarios:
+            common = {
+                "execution_id": base_spec.execution_id,
+                "execution_config_sha256": base_spec.sha256,
+                "partition": "validation",
+                "policy_scenario_id": scenario.scenario_id,
+                "policy_scenario_hash": scenario.scenario_hash,
+            }
+            cells.extend((
+                ExperimentCell("B4", "C1", "P2", "consistent", 42, 5, **common),
+                ExperimentCell("B5", "C1", "P2", "consistent", 42, 5, **common),
+            ))
         matrix = ExperimentMatrix(
             "2.1", base_spec.protocol_version, "a" * 64, "b" * 64, "c" * 64,
-            (b4, b5), (), execution_id=base_spec.execution_id,
+            tuple(cells), (), execution_id=base_spec.execution_id,
             execution_config_sha256=base_spec.sha256, partition="validation",
         )
         exposure = load_closed_loop_exposure_config(
@@ -216,7 +268,7 @@ class V2CellRunnerTests(unittest.TestCase):
             files = sorted((root / "units").glob("*.json"))
 
         self.assertEqual(count, 1)
-        self.assertEqual([path.name for path in files], [f"{b4.comparison_id}.json"])
+        self.assertEqual([path.name for path in files], [f"{cells[0].exposure_id}.json"])
 
     def test_v2_1_audit_rejeita_trajectory_hash_divergente_no_mesmo_par(self):
         base_spec = load_execution_spec(

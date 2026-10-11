@@ -102,11 +102,7 @@ def _selection_dir(plan: V2ExperimentPlan, matrix: ExperimentMatrix) -> Path:
 
 
 def _selection_comparison_id(cell: ExperimentCell) -> str:
-    payload = cell._identity()
-    for field in ("method", "policy_scenario_id", "policy_scenario_hash"):
-        payload.pop(field, None)
-    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:24]
+    return cell.exposure_id
 
 
 def _records(matrix: ExperimentMatrix, output: Path) -> list[dict[str, Any]]:
@@ -154,6 +150,9 @@ def freeze_v2_selection(plan: V2ExperimentPlan, matrix: ExperimentMatrix) -> Pat
             "agent_id": individual.get("agent_id"),
             "seed": cell.get("seed"),
             "candidate_set_id": individual.get("candidate_set_id"),
+            "relevance_id": individual.get("relevance_id"),
+            "trajectory_sha256": record.get("result", {}).get("trajectory_sha256"),
+            "state_version": individual.get("state_version"),
             "ndcg_at_5": individual.get("metrics", {}).get("ndcg_at_k"),
             "status": status,
             "cell_id": cell.get("cell_id"),

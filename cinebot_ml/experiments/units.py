@@ -334,11 +334,11 @@ def _shared_time(config: ClosedLoopExposureConfig, interaction: int) -> str:
     return value.isoformat().replace("+00:00", "Z")
 
 
-def _shared_order(comparison_id: str, movie_ids: Sequence[Any]) -> tuple[Any, ...]:
-    """Ordena IDs canônicos por uma chave determinística do par, nunca do método."""
+def _shared_order(exposure_id: str, movie_ids: Sequence[Any]) -> tuple[Any, ...]:
+    """Ordena IDs por uma chave determinística, sem método ou cenário."""
     def key(movie_id: Any) -> tuple[str, str]:
         encoded = json.dumps(movie_id, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        digest = hashlib.sha256(f"{comparison_id}:{encoded}".encode("utf-8")).hexdigest()
+        digest = hashlib.sha256(f"{exposure_id}:{encoded}".encode("utf-8")).hexdigest()
         return digest, encoded
 
     return tuple(sorted(movie_ids, key=key))
@@ -363,7 +363,7 @@ def _shared_request(
         (),
         cell.k,
         unit_id=state.state.subject_id,
-        session_id=f"shared-{cell.comparison_id}",
+        session_id=f"shared-{cell.exposure_id}",
         profile_data=dict(profile_data),
         history=tuple(event.to_dict() for event in state.state.history),
     )
@@ -378,15 +378,26 @@ def _shared_exposure_pair(
     exposure_config: ClosedLoopExposureConfig,
     profile_observation_config: ProfileObservationConfig | None,
 ) -> dict[str, Any]:
-    """Materializa uma única trajetória method-independent para um par B4/B5."""
-    methods = {cell.method: cell for cell in cells}
-    if set(methods) != set(exposure_config.paired_methods):
-        raise ExecutionSpecError("A trajetória compartilhada exige exatamente B4 e B5.")
-    comparison_ids = {cell.comparison_id for cell in cells}
-    if len(comparison_ids) != 1:
-        raise ExecutionSpecError("B4 e B5 devem pertencer ao mesmo comparison_id.")
-    comparison_id = comparison_ids.pop()
-    reference = methods["B4"]
+    """Materializa uma trajetória comum a B4/B5 e aos cenários de política."""
+    exposure_ids = {cell.exposure_id for cell in cells}
+    if len(exposure_ids) != 1:
+        raise ExecutionSpecError("As células compartilhadas devem pertencer ao mesmo exposure_id.")
+    exposure_id = exposure_ids.pop()
+    comparisons: dict[str, dict[str, ExperimentCell]] = defaultdict(dict)
+    for cell in cells:
+        methods = comparisons[cell.comparison_id]
+        if cell.method in methods:
+            raise ExecutionSpecError("A trajetória compartilhada recebeu método duplicado no comparison_id.")
+        methods[cell.method] = cell
+    if not comparisons or any(
+        set(methods) != set(exposure_config.paired_methods)
+        for methods in comparisons.values()
+    ):
+        raise ExecutionSpecError("Cada comparison_id compartilhado exige exatamente B4 e B5.")
+    comparison_ids = tuple(sorted(comparisons))
+    reference = next(
+        cell for cell in sorted(cells) if cell.method == "B4"
+    )
     safe_catalog = _safe_catalog(catalog)
     agent = build_agent(reference.persona, reference.seed, safe_catalog)
     declared_preference = (
@@ -418,7 +429,7 @@ def _shared_exposure_pair(
             catalog_path=catalog_path,
             catalog_sha256=catalog_sha256,
         )
-        order = order or _shared_order(comparison_id, candidates.movie_ids)
+        order = order or _shared_order(exposure_id, candidates.movie_ids)
         eligible = set(candidates.movie_ids)
         movie_id = next((item for item in order if item in eligible), None)
         if movie_id is None:
@@ -427,7 +438,7 @@ def _shared_exposure_pair(
         movie = next(item for item in candidates.movies if item["id"] == movie_id)
         judgment = agent.evaluate(movie, interaction)
         event = FeedbackEvent(
-            event_id=f"shared-{comparison_id}-{interaction + 1:04d}",
+            event_id=f"shared-{exposure_id}-{interaction + 1:04d}",
             movie_id=movie_id,
             feedback=judgment.feedback,
             timestamp=timestamp,
@@ -461,7 +472,7 @@ def _shared_exposure_pair(
     trajectory = {
         "schema_version": "1.0",
         "exposure_policy": exposure_config.exposure_policy,
-        "comparison_id": comparison_id,
+        "exposure_id": exposure_id,
         "condition": reference.condition,
         "target_events": target,
         "status": status,
@@ -501,7 +512,7 @@ def _shared_exposure_pair(
         "agent_id": agent.agent_id,
         "persona": reference.persona,
         "agent_version": agent.config.version,
-        "simulation_id": hashlib.sha256(comparison_id.encode("utf-8")).hexdigest()[:24],
+        "simulation_id": hashlib.sha256(exposure_id.encode("utf-8")).hexdigest()[:24],
         "interaction": len(steps),
         "state_version": state.state.version,
         "trajectory_sha256": trajectory_sha256,
@@ -513,9 +524,16 @@ def _shared_exposure_pair(
             "pairing_id": hashlib.sha256(
                 json.dumps(pairing_key, sort_keys=True).encode("utf-8")
             ).hexdigest()[:24],
-            "comparison_id": comparison_id,
+            "exposure_id": exposure_id,
+            "comparison_ids": list(comparison_ids),
             "key": pairing_key,
-            "cell_ids": {method: cell.cell_id for method, cell in methods.items()},
+            "cell_ids": {
+                comparison_id: {
+                    method: cell.cell_id
+                    for method, cell in sorted(methods.items())
+                }
+                for comparison_id, methods in sorted(comparisons.items())
+            },
         },
         "trajectory": trajectory,
         "trajectory_sha256": trajectory_sha256,
@@ -569,9 +587,9 @@ def write_units(
     if exposure_policy == "shared-seeded-v2.1":
         groups: dict[str, list[ExperimentCell]] = defaultdict(list)
         for cell in matrix.cells:
-            groups[cell.comparison_id].append(cell)
+            groups[cell.exposure_id].append(cell)
         unique: Mapping[str, Any] = {
-            comparison_id: tuple(sorted(cells)) for comparison_id, cells in groups.items()
+            exposure_id: tuple(sorted(cells)) for exposure_id, cells in groups.items()
         }
     else:
         unique = (

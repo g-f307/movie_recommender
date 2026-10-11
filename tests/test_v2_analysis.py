@@ -173,6 +173,9 @@ class V2AnalysisTests(unittest.TestCase):
                             "agent_id": "selection-agent",
                             "seed": 42,
                             "candidate_set_id": "selection-candidates",
+                            "relevance_id": "selection-relevance",
+                            "trajectory_sha256": "a" * 64,
+                            "state_version": 3,
                             "ndcg_at_5": 0.8 if item.scenario_id == "S1" else 0.4,
                             "status": "evaluated",
                         }

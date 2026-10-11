@@ -8,6 +8,8 @@ import yaml
 
 from cinebot_ml.experiments.policy_sensitivity import (
     DEFAULT_POLICY_SENSITIVITY_CONFIG_PATH,
+    DEFAULT_V2_1_POLICY_SENSITIVITY_CONFIG_PATH,
+    DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
     PolicySensitivityError,
     build_sensitivity_runtime,
     execute_validation_scenarios,
@@ -63,6 +65,32 @@ class PolicySensitivityTests(unittest.TestCase):
         observations[2]["candidate_set_id"] = "candidates-2"
 
         with self.assertRaisesRegex(PolicySensitivityError, "candidatos incompatíveis"):
+            select_validation_scenario(config, observations)
+
+    def test_v2_1_rejeita_cenarios_com_trajetorias_diferentes(self):
+        config = load_policy_sensitivity_config(
+            DEFAULT_V2_1_POLICY_SENSITIVITY_CONFIG_PATH,
+            schema_path=DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
+        )
+        observations = [
+            {
+                "scenario_id": scenario.scenario_id,
+                "partition": "validation",
+                "comparison_id": "exposure-1",
+                "agent_id": "agent-1",
+                "seed": 42,
+                "candidate_set_id": "candidates-1",
+                "relevance_id": "relevance-1",
+                "trajectory_sha256": "a" * 64,
+                "state_version": 3,
+                "ndcg_at_5": 0.60 if scenario.scenario_id == "S1" else 0.40,
+                "status": "evaluated",
+            }
+            for scenario in config.scenarios
+        ]
+        observations[1]["trajectory_sha256"] = "b" * 64
+
+        with self.assertRaisesRegex(PolicySensitivityError, "evidência incompatível"):
             select_validation_scenario(config, observations)
 
     def test_rejeita_matriz_que_nao_varia_os_tres_parametros(self):
