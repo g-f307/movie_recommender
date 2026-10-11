@@ -161,6 +161,19 @@ persiste manifesto, status e um checkpoint atômico por célula. Uma retomada
 ignora resultados existentes e não os sobrescreve. Consulte
 [`docs/research/experiment_matrix.md`](docs/research/experiment_matrix.md).
 
+A execução complementar v2 possui contratos próprios de `validation` e
+`holdout`. Ela só enumera B4/B5 em ciclo fechado; o holdout permanece bloqueado
+até haver uma seleção vinda exclusivamente da validação:
+
+```bash
+.venv/bin/python -m cinebot_ml.experiments.v2_config list \
+  --partition validation --condition C0 --profile P0 \
+  --persona consistent --seed 42 --k 5
+```
+
+Consulte [`docs/research/v2_experiment_config.md`](docs/research/v2_experiment_config.md)
+para os contratos e o uso seguro da seleção congelada.
+
 O estudo pareado de cold start pode ser executado por configuração, preservando
 o mesmo agente latente entre P0–P5:
 

@@ -22,6 +22,8 @@ exposição registra o ranking que originou cada evento de feedback.
 A matriz de sensibilidade também é um insumo separado. Ela varia parâmetros de
 B5 exclusivamente na validação v2 e exige uma seleção congelada antes de abrir
 qualquer holdout v2. Os arquivos v1 continuam imutáveis durante esse processo.
+As configurações operacionais da validação e do holdout estão descritas em
+[`v2_experiment_config.md`](v2_experiment_config.md).
 
 As saídas ficam abaixo de `results/v2/`:
 
@@ -58,8 +60,17 @@ python -m cinebot_ml.experiments.execution prepare \
   --spec configs/experiments/execution_v2.yaml
 ```
 
-Quando a configuração e a matriz v2 estiverem versionadas, será possível
-auditar os checkpoints e finalizar sem sobrescrever o manifesto:
+As matrizes v2 podem ser inspecionadas sem escrita. A validação enumera S0–S6;
+o holdout exige uma seleção congelada e compatível:
+
+```bash
+python -m cinebot_ml.experiments.v2_config list --partition validation
+python -m cinebot_ml.experiments.v2_config list --partition holdout \
+  --selection results/v2/reports/<selection_id>/selection.json
+```
+
+Depois que as unidades e o runner forem implementados, será possível auditar os
+checkpoints e finalizar sem sobrescrever o manifesto:
 
 ```bash
 python -m cinebot_ml.experiments.execution audit \
