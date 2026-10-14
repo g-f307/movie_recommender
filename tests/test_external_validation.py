@@ -114,6 +114,38 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(result["direction"], "inconclusive_neutral_external")
         self.assertEqual(result["comparability"], "partial")
 
+    def test_auditoria_registra_quando_adaptacao_muda_perfil_e_ranking(self):
+        """Impede que uma atualização ignorada pareça um empate legítimo."""
+        config = load_study_config(CONFIG_PATH)
+        movies = {
+            movie_id: {
+                "movie_id": movie_id,
+                "title": f"Movie {movie_id}",
+                "genres": ["Drama"] if movie_id <= 20 else ["Comedy"],
+            }
+            for movie_id in range(1, 41)
+        }
+        ratings = []
+        for user_id in range(1, 36):
+            ratings.extend(
+                [
+                    Rating(user_id, 1, 4, 100),
+                    *[Rating(user_id, movie_id, 3, 100) for movie_id in range(2, 15)],
+                    Rating(user_id, 23, 5, 200),
+                    Rating(user_id, 24, 5, 200),
+                    *[Rating(user_id, movie_id, 5, 300) for movie_id in range(15, 19)],
+                ]
+            )
+
+        report, rows, _ = evaluate_external(ratings, movies, config)
+
+        diagnostic = report["feedback_update_diagnostic"]
+        self.assertEqual(diagnostic["users_with_profile_change"], 35)
+        self.assertEqual(diagnostic["users_with_candidate_score_change"], 35)
+        self.assertEqual(diagnostic["users_with_top_k_change"], 35)
+        self.assertEqual(diagnostic["users_with_ndcg_change"], 35)
+        self.assertTrue(all(row["b5_top_k_changed"] for row in rows))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 # Validação externa no MovieLens 100K
 
-**Versão:** 1.0
+**Versão:** 1.1
 **Issue:** #73 — external validation
 **Protocolo:** [external_validation_protocol.md](external_validation_protocol.md)
 **Configuração:** `configs/experiments/external_validation_v1.json`
@@ -26,7 +26,7 @@ As versões públicas de B4 e B5 usam somente gêneros porque o MovieLens não c
 
 B4 e B5 obtiveram média 0,01465; B0 obteve 0,09313. A correlação rank-biserial B5−B0 foi −0,86667. A cobertura do catálogo foi 1,90% para B0, 3,21% para B4 e 2,91% para B5.
 
-O empate integral B5−B4 é neutro. O efeito negativo sintético (−0,01809; IC95% [−0,03427; −0,00222]) não foi replicado, mas também não foi contradito por efeito positivo. A decisão é `inconclusive_neutral_external`.
+O empate integral B5−B4 é neutro e não decorre de B5 ter ignorado a janela de adaptação. A auditoria reprodutível registra alteração não nula no perfil incremental e nos escores de candidatos para 41 dos 43 usuários elegíveis; em dois deles, a lista Top-5 também muda. Nenhuma dessas mudanças move um item relevante de teste para dentro ou para fora do Top-5, portanto todos os valores de NDCG@5 permanecem iguais. O efeito negativo sintético (−0,01809; IC95% [−0,03427; −0,00222]) não foi replicado, mas também não foi contradito por efeito positivo. A decisão é `inconclusive_neutral_external`.
 
 ## Impacto sobre RQ1–RQ5
 
