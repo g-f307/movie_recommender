@@ -1,0 +1,93 @@
+# Artefato anônimo de reanálise — SAC 2027
+
+## Finalidade
+
+O artefato permite conferir a integridade das evidências e refazer a análise
+estatística e as figuras da execução v2.1 sem acessar o remoto DVC, o Cloudflare
+R2, credenciais ou variáveis do `.env`.
+
+O pacote oferece **verificação e reanálise**, não uma reprodução integral desde
+o catálogo. O catálogo original, tabelas cartesianas de treinamento e feedback
+real permanecem excluídos por política de distribuição e privacidade.
+
+## Conteúdo permitido
+
+- manifesto final e 20.160 células v2.1;
+- seleção registrada na validação e suas observações;
+- resultados agregados e figuras v2.1;
+- evidências derivadas v1.1 de contrastes, ablação, robustez, descoberta e
+  validação externa;
+- configurações e locks experimentais;
+- código necessário para a análise;
+- dependências, licença, instruções e verificador offline;
+- inventário de tamanho e SHA-256 por arquivo.
+
+O exportador usa uma lista permitida. `data/`, `datasets/`, `.env`, cache DVC,
+histórico Git, pacote do manuscrito e módulos com identidade do autor não entram
+no arquivo.
+
+## Geração
+
+```bash
+make anonymous-artifact PYTHON=.venv/bin/python
+```
+
+Saída local ignorada pelo Git:
+
+```text
+artifacts/anonymous_sac2027_reanalysis.zip
+```
+
+Um caminho alternativo pode ser informado sem alterar o código:
+
+```bash
+OUTPUT_PATH=/tmp/anonymous_sac2027.zip \
+  make anonymous-artifact PYTHON=.venv/bin/python
+```
+
+O comando interrompe a geração se detectar email, caminho de usuário, endpoint
+privado, marcador de credencial ou identificador proibido em conteúdo textual.
+O arquivo é escrito primeiro em nome temporário e só passa ao nome final depois
+de concluído.
+
+## Verificação independente
+
+Após extrair o ZIP:
+
+```bash
+python verify_artifact.py
+python -m venv .venv
+.venv/bin/python -m pip install -r requirements-ci.txt
+.venv/bin/python -m cinebot_ml.analysis.v2_analysis \
+  --manifest results/v2_1/revision_2/manifests/executions/28732d8425f71f151655617c/execution.manifest.json \
+  --selection results/v2_1/revision_2/reports/validation/0b1bcc4e1bd908b021949dea/selection.json \
+  --output-dir reproduced/v2_analysis
+```
+
+O diretório `reproduced/v2_analysis` deve produzir novamente o relatório JSON,
+as linhas pareadas, os subgrupos, as figuras e um manifesto de saída. Os hashes
+dessas saídas podem ser comparados com o diretório de análise incluído.
+
+## Publicação
+
+Antes do upload em serviço anônimo:
+
+1. extrair em diretório limpo;
+2. executar `verify_artifact.py`;
+3. executar a reanálise;
+4. comparar os hashes das saídas;
+5. abrir o pacote sem autenticação em uma sessão privada;
+6. confirmar que título, descrição e URL não revelam autoria ou instituição.
+
+O endereço anônimo deve ser acrescentado ao manuscrito somente depois dessas
+verificações e sem prometer reconstrução dos dados restritos.
+
+## Autorização de distribuição
+
+A licença atual do repositório declara propriedade exclusiva e restrições de
+redistribuição sobre código, modelos, dados processados, documentação e demais
+artefatos. Portanto, a geração local não autoriza o upload. Antes de publicar o
+ZIP no 4open.science ou em outro serviço externo, o responsável pelo projeto
+deve obter autorização escrita do titular dos direitos ou uma licença específica
+para revisão científica anônima. Sem essa autorização, o pacote deve permanecer
+local e o manuscrito deve informar disponibilidade após o aceite/autorização.
