@@ -21,6 +21,9 @@ env/
 .vscode/
 .mplconfig/
 .texlive-cache/
+submission/prism_sac2027/
+output/
+tmp/
 apresentacao/.texlive-cache/
 *.zip
 .codex

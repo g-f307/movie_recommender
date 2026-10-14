@@ -1,8 +1,9 @@
 # Conformidade do pacote de submissão — ACM SAC 2027
 
-Verificação realizada em **1º de outubro de 2026** para a issue #81. Este
-documento registra as regras consultadas, o resultado das verificações e os
-limites da automação. Nenhum upload foi realizado.
+Verificação original realizada em **1º de outubro de 2026** e atualizada em
+**13 de outubro de 2026** após a revisão metodológica e editorial do manuscrito.
+Este documento registra as regras consultadas, o resultado das verificações e
+os limites da automação. Nenhum upload foi realizado.
 
 ## Regras oficiais registradas
 
@@ -27,17 +28,18 @@ faz alegações sobre participantes humanos.
 
 ## Resultado técnico
 
-- Fonte principal: `movie_recommender_draft.tex` com
+- Fonte principal: `movie_recommender_sac2027_en.tex` com
   `\documentclass[sigconf,anonymous,review,natbib=false]{acmart}`.
 - Template congelado no pacote: `acmart` 2.19 e estilos bibliográficos ACM
   correspondentes, evitando dependência da versão instalada no ambiente.
-- PDF: cinco páginas, tamanho US Letter (612 × 792 pt), PDF 1.7.
+- PDF: oito páginas, tamanho US Letter (612 × 792 pt); o corpo termina na
+  página 7 e as 30 referências ocupam somente a página 8.
 - Metadado `Author`: vazio; título científico preservado.
 - Fontes: todas incorporadas no PDF inspecionado.
 - Citações e referências cruzadas: nenhuma referência ou citação indefinida no
   log de compilação.
-- Figuras: quatro PDFs vetoriais incorporados; não há rasterização de baixa
-  resolução no PDF final.
+- Figuras: quatro PDFs vetoriais incorporados, ajustados à largura de uma
+  coluna e com descrição alternativa; não há rasterização de baixa resolução.
 - Tabelas: inspecionadas no PDF em coluna; nenhuma ultrapassa a área útil.
 - Log: há avisos `Underfull \vbox` e o aviso da classe sobre o bloco de
   referência ACM suprimido no modo de revisão. Não há `Overfull`, erro de
@@ -53,7 +55,7 @@ faz alegações sobre participantes humanos.
 Os números centrais foram mantidos sem alteração e permanecem vinculados às
 fontes estruturadas por [`manuscript_traceability.md`](manuscript_traceability.md):
 
-- 15.120 células oficiais e 35 agentes sintéticos independentes;
+- 15.120 células e 35 trajetórias sintéticas aninhadas em sete personas;
 - diferença média B5−B4 em NDCG@5 de −0,0181;
 - IC bootstrap de 95% [−0,0343; −0,0022];
 - Wilcoxon bicaudal p=0,0356 e correlação rank-biserial −0,406;
@@ -65,22 +67,14 @@ As tabelas e figuras são cópias dos artefatos rastreados produzidos na issue
 
 ## Auditoria das referências
 
-Auditoria externa realizada em **1º de outubro de 2026**. As oito entradas da
-bibliografia possuem DOI único, foram resolvidas pelo serviço DOI e tiveram
-título, autoria, veículo, páginas e editora comparados com os metadados do
-Crossref. “Acessível” significa que o identificador leva à página canônica; o
-texto integral pode depender de assinatura ou acesso institucional.
-
-| Referência | DOI | Destino canônico | Resultado |
-|---|---|---|---|
-| Ricci, Rokach e Shapira, *Recommender Systems Handbook* | [10.1007/978-1-4899-7637-6](https://doi.org/10.1007/978-1-4899-7637-6) | Springer | válida |
-| Schein et al., *Methods and Metrics for Cold-Start Recommendations* | [10.1145/564376.564421](https://doi.org/10.1145/564376.564421) | ACM DL | válida |
-| Jannach et al., *A Survey on Conversational Recommender Systems* | [10.1145/3453154](https://doi.org/10.1145/3453154) | ACM DL | válida |
-| Lops, de Gemmis e Semeraro, *Content-based Recommender Systems* | [10.1007/978-0-387-85820-3_3](https://doi.org/10.1007/978-0-387-85820-3_3) | Springer | válida |
-| Burke, *Hybrid Recommender Systems* | [10.1023/A:1021240730564](https://doi.org/10.1023/A:1021240730564) | Springer | válida |
-| Herlocker et al., *Evaluating Collaborative Filtering Recommender Systems* | [10.1145/963770.963772](https://doi.org/10.1145/963770.963772) | ACM DL | válida |
-| Castells, Hurley e Vargas, *Novelty and Diversity in Recommender Systems* | [10.1007/978-1-0716-2197-4_16](https://doi.org/10.1007/978-1-0716-2197-4_16) | Springer | válida |
-| Harper e Konstan, *The MovieLens Datasets* | [10.1145/2827872](https://doi.org/10.1145/2827872) | ACM DL | válida |
+A bibliografia atual contém 30 entradas. Em **13 de outubro de 2026**, os 25
+DOIs foram resolvidos por `doi.org`; códigos 403 ocorreram apenas no destino de
+editoras que bloqueiam consultas automatizadas, depois da resolução correta do
+identificador. As duas entradas arXiv usam identificadores canônicos sem repetir
+o mesmo endereço nos campos bibliográficos. Os trabalhos de
+Schnabel et al., Rocchio e Holm não dependem de DOI no manuscrito e mantêm os
+dados editoriais de seus veículos originais. A compilação com Biber não reporta
+chaves ausentes ou entradas inválidas.
 
 O Crossref registra publicação online em 2010 para o capítulo de Lops et al. e
 em 2021 para o capítulo de Castells et al. A bibliografia mantém 2011 e 2022,
@@ -89,33 +83,35 @@ Essa diferença foi revisada e não representa DOI ou obra incorreta.
 
 ## Reprodução e arquivos preparados
 
-O comando abaixo recompila o artigo, valida o PDF e a anonimização e cria um
-diretório novo sem sobrescrever um pacote existente:
+O pacote local abaixo contém a versão inglesa revisada no formato ACM, a
+bibliografia e as quatro figuras usadas no manuscrito. Ele permanece fora do
+versionamento para não misturar arquivos de submissão com o código-fonte:
 
 ```bash
-make submission-package PYTHON=.venv/bin/python
+cd submission/prism_sac2027
+latexmk -pdf -halt-on-error -interaction=nonstopmode -outdir=build main.tex
 ```
 
-Saída padrão, não versionada: `artifacts/submission_sac2027/`.
+Diretório não versionado: `submission/prism_sac2027/`.
 
 ```text
-submission_sac2027/
-├── submission/
-│   └── movie_recommender_anonymous.pdf
-├── source/
-│   ├── movie_recommender_draft.tex
-│   ├── movie_recommender_references.bib
-│   ├── acmart.cls e estilos bibliográficos ACM
-│   └── paper_artifacts/
-│       ├── figures/*.pdf
-│       └── tables/*.tex
-└── submission_manifest.json
+prism_sac2027/
+├── main.tex
+├── main.bbl
+├── references.bib
+├── acmart.cls e estilos bibliográficos ACM
+├── figures/
+│   ├── study_design_column.pdf
+│   ├── evidence_lines_column.pdf
+│   ├── ablation_column.pdf
+│   └── robustness_column.pdf
+└── build/main.pdf
 ```
 
-O pacote contém somente o PDF anônimo e os fontes necessários para reprodução.
-Dados, resultados privados, arquivos DVC, credenciais, `.env`, logs e
-auxiliares LaTeX ficam de fora. O manifesto e o PDF devem ser regenerados no
-commit aprovado imediatamente antes da submissão.
+Esse diretório é o pacote de compilação do artigo, não o artefato experimental.
+O suplemento anônimo com código, configurações e manifestos ainda deve ser
+publicado ou anexado no portal de submissão. Dados privados, credenciais,
+`.env`, endpoints e caminhos locais não devem integrar nenhum dos pacotes.
 
 ## Limites e verificação humana
 
