@@ -1,4 +1,5 @@
 import hashlib
+import gzip
 import json
 import tempfile
 import unittest
@@ -128,6 +129,23 @@ def write_v2_execution(root: Path, *, include_holdout=True, mixed_execution=Fals
 
 
 class V2AnalysisTests(unittest.TestCase):
+    def test_le_manifesto_da_matriz_comprimido_preservando_hash_do_json(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manifest_path = write_v2_execution(Path(temporary))
+            matrix_path = manifest_path.parent / "matrix.manifest.json"
+            compressed_path = matrix_path.with_suffix(matrix_path.suffix + ".gz")
+            compressed_path.write_bytes(gzip.compress(matrix_path.read_bytes(), mtime=0))
+            matrix_path.unlink()
+
+            report, pairs, _ = analyze_v2_execution(
+                manifest_path,
+                selected_scenario_id="S1",
+                bootstrap_resamples=100,
+            )
+
+        self.assertEqual(report["matrix_id"], "matrix-v2-test")
+        self.assertEqual(len(pairs), 6)
+
     def test_analisa_execucao_v2_1_com_hash_de_trajetoria_pareado(self):
         with tempfile.TemporaryDirectory() as temporary:
             manifest_path = write_v2_execution(Path(temporary))
