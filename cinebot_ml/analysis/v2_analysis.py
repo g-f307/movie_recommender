@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+from cinebot_ml.config import PROJECT_ROOT
 from cinebot_ml.experiments.policy_sensitivity import (
     DEFAULT_V2_1_POLICY_SENSITIVITY_CONFIG_PATH,
     DEFAULT_V2_1_POLICY_SENSITIVITY_SCHEMA_PATH,
@@ -41,6 +42,15 @@ def _read_json(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise V2AnalysisError(f"Objeto JSON esperado em {path}.")
     return value
+
+
+def _portable_source_path(path: Path) -> str:
+    """Represent project inputs without embedding a workstation path."""
+    path = Path(path).resolve()
+    try:
+        return path.relative_to(PROJECT_ROOT.resolve()).as_posix()
+    except ValueError:
+        return (Path(path.parent.name) / path.name).as_posix()
 
 
 @dataclass(frozen=True)
@@ -407,7 +417,7 @@ def analyze_v2_execution(
         "schema_version": "1.0",
         "analysis": "v2_ecological_robustness_b5_vs_b4",
         "execution": dict(manifest["execution"]),
-        "source_manifest": str(manifest_path),
+        "source_manifest": _portable_source_path(manifest_path),
         "source_manifest_sha256": _sha256(manifest_path),
         "matrix_id": manifest["matrix"]["matrix_id"],
         "metric": "ndcg_at_k",
