@@ -1,6 +1,11 @@
 # Movie Recommender Bots
 
-> **Propriedade Intelectual:** Este projeto e todo o seu código-fonte, modelos e artefatos são de propriedade da LG Electronics do Brasil Ltda., desenvolvido no âmbito do projeto AX Academy --- Digital Transformation (Convênio N.º 005/2025 --- INOVA / IFAM). Consulte o arquivo LICENSE para mais detalhes.
+> **Titularidade:** o repositório, o código-fonte, a documentação técnica e os
+> artefatos autorais deste projeto pertencem exclusivamente a Gabriel Fernandes
+> (`g-f307`). O trabalho foi iniciado no âmbito do AX Academy — Digital
+> Transformation, sem cessão dos direitos patrimoniais sobre estes materiais.
+> Consulte o [`LICENSE`](LICENSE) para as condições de uso e para a autorização
+> limitada de revisão científica.
 
 Upgrade do `CineBot, curadoria de filmes` para o `Desafio 02 - Upgrade do Bot Pessoal com ML`. O projeto preserva os três bots originais do Módulo 1 e adiciona uma camada de Machine Learning para recomendar filmes a partir de `3 gêneros ranqueados pelo usuário`, mais filtros de `década` e `popularidade`, como indicado na Seção 8 do enunciado para `Gabriel de Sá`.
 
@@ -143,6 +148,34 @@ make paper-artifacts PYTHON=.venv/bin/python  # figuras e tabelas finais do arti
 A CI executa esse fluxo em Python 3.11 e 3.12. O modo `readiness` falha de forma
 explícita quando catálogo, dataset, remoto DVC ou artefatos B2/B3 não estiverem
 disponíveis e compatíveis.
+
+## Artefato de reanálise para revisão científica
+
+O projeto gera um pacote autônomo e anonimizado para a revisão do manuscrito da
+SAC 2027. Ele contém as 20.160 células da execução v2.1, configurações, código
+de análise, resultados agregados, figuras e um inventário SHA-256. O pacote
+permite verificar a integridade das evidências e refazer a análise estatística
+sem credenciais, variáveis do `.env`, remoto DVC ou acesso ao Cloudflare R2.
+
+```bash
+make anonymous-artifact PYTHON=.venv/bin/python
+```
+
+O arquivo é produzido localmente em
+`artifacts/anonymous_sac2027_reanalysis.zip` e permanece fora do versionamento.
+O gerador usa uma lista explícita de arquivos permitidos, rejeita identificadores
+do autor e da instituição, limita cada membro a 8 MiB e armazena o manifesto da
+matriz em formato `gzip` sem alterar o hash do JSON original.
+
+O pacote oferece **verificação e reanálise**, não a reconstrução integral a
+partir de dados restritos. Catálogo original, tabelas cartesianas de treinamento,
+feedback real, credenciais e histórico Git não são distribuídos. O endereço do
+espelho para revisores também não é publicado neste README identificado; ele é
+inserido somente na versão anônima do manuscrito após a inspeção do espelho em
+sessão sem autenticação.
+
+O conteúdo, os limites e o procedimento de verificação estão documentados em
+[`docs/research/anonymous_artifact.md`](docs/research/anonymous_artifact.md).
 
 ## Matriz experimental
 
@@ -371,3 +404,13 @@ CINEBOT_ENABLE_DRIFT_ON_PREDICT=true
 Relatório esperado:
 
 - `reports/relatorio_drift.html`
+
+## Licença e propriedade intelectual
+
+Copyright (c) 2026 Gabriel Fernandes (`g-f307`). Todos os direitos reservados.
+
+O projeto não é distribuído como software de código aberto. O
+[`LICENSE`](LICENSE) autoriza somente a hospedagem temporária de uma cópia
+anonimizada e os atos necessários à verificação do trabalho durante a revisão
+científica. Componentes e conjuntos de dados de terceiros continuam sujeitos
+aos termos de seus respectivos titulares.
