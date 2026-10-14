@@ -195,10 +195,18 @@ class AnonymousArtifactTests(unittest.TestCase):
             self.assertEqual(manifest["metadata"]["total_cells"], 20160)
             with zipfile.ZipFile(output) as archive:
                 readme = archive.read("README.md").decode("utf-8")
+                review_license = archive.read("LICENSE-REVIEW.md").decode("utf-8")
                 self.assertIn("python verify_artifact.py", readme)
                 self.assertIn("cinebot_ml.analysis.v2_analysis", readme)
                 self.assertIn("reanalysis", readme.casefold())
+                self.assertIn("peer review", readme.casefold())
+                self.assertNotIn(
+                    "authorization from the rights holder", readme.casefold()
+                )
+                self.assertIn("anonymous peer review", review_license.casefold())
                 self.assertIn("verify_artifact.py", archive.namelist())
+                self.assertIn("LICENSE-REVIEW.md", archive.namelist())
+                self.assertNotIn("LICENSE", archive.namelist())
                 self.assertNotIn("data/filmes.json", archive.namelist())
                 sanitized = archive.read(
                     "results/v2/reports/analysis/v2_analysis.json"

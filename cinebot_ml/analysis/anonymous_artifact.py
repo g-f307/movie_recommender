@@ -250,6 +250,23 @@ print(f"Verified {len(manifest['files'])} files.")
 '''
 
 
+_ANONYMOUS_REVIEW_LICENSE = """# Anonymous Peer-Review License
+
+Copyright (c) 2026 The Authors. All rights reserved.
+
+The authors authorize the temporary hosting of this anonymized artifact by a
+peer-review service and permit reviewers and conference organizers to access,
+download, execute, and reproduce it locally solely to evaluate the associated
+manuscript.
+
+This permission is free of charge and non-exclusive.
+Its sole purpose is anonymous peer review. It does not permit commercial use or
+redistribution outside the review process. Publication of derivative works and
+removal of applicable notices are also prohibited. Third-party components and
+external datasets remain subject to their respective terms.
+"""
+
+
 def _artifact_readme(manifest_path: Path, selection_path: Path) -> str:
     manifest = manifest_path.as_posix()
     selection = selection_path.as_posix()
@@ -260,8 +277,8 @@ reported v2.1 cell-level evidence. It does not redistribute the restricted
 source catalog and does not claim a from-scratch rerun of the simulator.
 
 No private object store, credentials, or environment file is required.
-This local review candidate does not grant redistribution rights; authorization
-from the rights holder is required before uploading it to an external service.
+Temporary hosting and access for anonymous peer review are authorized under
+`LICENSE-REVIEW.md`. Other redistribution rights are not granted.
 
 ## Verify integrity
 
@@ -398,6 +415,7 @@ def build_sac_reanalysis_archive(
     generated_files.update(
         {
             "README.md": _artifact_readme(manifest_relative, selection_relative),
+            "LICENSE-REVIEW.md": _ANONYMOUS_REVIEW_LICENSE,
             "verify_artifact.py": _OFFLINE_VERIFIER,
         }
     )

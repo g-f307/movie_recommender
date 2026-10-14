@@ -19,7 +19,7 @@ real permanecem excluídos por política de distribuição e privacidade.
   validação externa;
 - configurações e locks experimentais;
 - código necessário para a análise;
-- dependências, licença, instruções e verificador offline;
+- dependências, licença anônima de revisão, instruções e verificador offline;
 - inventário de tamanho e SHA-256 por arquivo.
 
 O exportador usa uma lista permitida. `data/`, `datasets/`, `.env`, cache DVC,
@@ -82,12 +82,13 @@ Antes do upload em serviço anônimo:
 O endereço anônimo deve ser acrescentado ao manuscrito somente depois dessas
 verificações e sem prometer reconstrução dos dados restritos.
 
-## Autorização de distribuição
+## Autorização para revisão
 
-A licença atual do repositório declara propriedade exclusiva e restrições de
-redistribuição sobre código, modelos, dados processados, documentação e demais
-artefatos. Portanto, a geração local não autoriza o upload. Antes de publicar o
-ZIP no 4open.science ou em outro serviço externo, o responsável pelo projeto
-deve obter autorização escrita do titular dos direitos ou uma licença específica
-para revisão científica anônima. Sem essa autorização, o pacote deve permanecer
-local e o manuscrito deve informar disponibilidade após o aceite/autorização.
+O titular do projeto autorizou a hospedagem temporária de uma cópia anonimizada,
+o acesso pelos revisores e a reprodução local necessária para verificar os
+resultados. O pacote inclui `LICENSE-REVIEW.md`, que registra essa permissão sem
+revelar a identidade do autor. A licença identificada da raiz não entra no ZIP.
+
+Essa autorização é limitada à revisão científica. Ela não converte o projeto
+em software de código aberto nem permite redistribuição fora do processo de
+avaliação.
