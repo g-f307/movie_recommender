@@ -234,6 +234,10 @@ class V2AnalysisTests(unittest.TestCase):
             )
 
         self.assertEqual(report["execution"]["id"], "execution-v2")
+        self.assertEqual(
+            report["source_manifest"],
+            "matrix-v2-test/execution.manifest.json",
+        )
         self.assertEqual(report["accounting"]["valid_pairs"], 6)
         self.assertEqual({row["partition"] for row in pairs}, {"validation", "holdout"})
         self.assertEqual(

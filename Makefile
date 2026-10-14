@@ -1,4 +1,4 @@
-.PHONY: setup setup-full validate test compile smoke readiness prepare-b2 prepare-b3 ablation robustness contrasts discovery-cost external-validation final-evidence paper-artifacts submission-package
+.PHONY: setup setup-full validate test compile smoke readiness prepare-b2 prepare-b3 ablation robustness contrasts discovery-cost external-validation final-evidence paper-artifacts submission-package anonymous-artifact
 
 PYTHON ?= python3
 
@@ -61,6 +61,18 @@ submission-package:
 		--pdf reports/ACM_SAC_2027_Article_Template/movie_recommender_draft.pdf \
 		--output "$${OUTPUT_ROOT:-artifacts/submission_sac2027}" \
 		--checked-at "$${CHECKED_AT:-2026-10-01}" \
+		--forbidden-identifier Gabriel \
+		--forbidden-identifier gf307 \
+		--forbidden-identifier "Instituto Federal do Amazonas" \
+		--forbidden-identifier "LG Electronics"
+
+anonymous-artifact:
+	$(PYTHON) -m cinebot_ml.analysis.anonymous_artifact \
+		--output "$${OUTPUT_PATH:-artifacts/anonymous_sac2027_reanalysis.zip}" \
+		--execution-manifest results/v2_1/revision_2/manifests/executions/28732d8425f71f151655617c/execution.manifest.json \
+		--analysis-dir results/v2_1/revision_2/reports/28732d8425f71f151655617c/analysis \
+		--selection results/v2_1/revision_2/reports/validation/0b1bcc4e1bd908b021949dea/selection.json \
+		--v1-derived-dir results/derived/specialized_v1 \
 		--forbidden-identifier Gabriel \
 		--forbidden-identifier gf307 \
 		--forbidden-identifier "Instituto Federal do Amazonas" \

@@ -34,6 +34,7 @@
 - [`research/scientific_reporting.md`](research/scientific_reporting.md): geração reproduzível de tabelas, figuras e metadados científicos.
 - [`research/paper_artifacts.md`](research/paper_artifacts.md): figuras e tabelas finais do artigo, fontes, hashes e comando de reprodução.
 - [`research/artifact_reproduction.md`](research/artifact_reproduction.md): recuperação e validação independente dos artefatos via DVC.
+- [`research/anonymous_artifact.md`](research/anonymous_artifact.md): pacote anônimo, autônomo e licenciado para verificação durante a revisão científica.
 - [`research/reproduction_log_v1.md`](research/reproduction_log_v1.md): registro da reprodução independente da execução oficial.
 - [`research/scientific_conclusions.md`](research/scientific_conclusions.md): decisões H1–H5, respostas RQ1–RQ5 e ameaças à validade.
 - [`research/external_validation_protocol.md`](research/external_validation_protocol.md): protocolo pré-especificado da validação externa no MovieLens 100K.

@@ -1,21 +1,37 @@
 AVISO DE PROPRIEDADE INTELECTUAL
-Copyright (c) 2026 LG Electronics do Brasil Ltda.
+
+Copyright (c) 2026 Gabriel Fernandes (g-f307).
 Todos os direitos reservados.
 
-Este software, incluindo todo o código-fonte, modelos de aprendizado de máquina, datasets processados,
-documentação técnica e demais artefatos contidos neste repositório, foi desenvolvido no âmbito do projeto ``AX
-Academy --- Digital Transformation'', objeto do Convênio N.º 005/2025 --- INOVA, firmado entre o Instituto
-Federal de Educação, Ciência e Tecnologia do Amazonas (IFAM), o Polo de Inovação do IFAM (INOVA) e a LG
-Electronics do Brasil Ltda., com apoio da Fundação de Apoio do IFAM (FAEPI).
+TITULARIDADE
 
-RESTRIÇÕES DE USO:
-1. Este material é de propriedade exclusiva da LG Electronics do Brasil Ltda.
-2. É proibida a reprodução, distribuição, modificação ou uso comercial, total ou parcial, sem autorização prévia
-e expressa da LG Electronics do Brasil Ltda.
-3. O uso deste material é restrito ao âmbito acadêmico e de pesquisa do projeto AX Academy --- Digital
-Transformation.
-4. Os autores (discentes) cedem integralmente os direitos patrimoniais sobre este material à LG Electronics do
-Brasil Ltda., conforme os termos do convênio vigente.
+O repositório, o código-fonte, a documentação técnica e os artefatos autorais
+produzidos para este projeto pertencem exclusivamente ao titular identificado
+acima. O trabalho foi iniciado no âmbito do projeto AX Academy - Digital
+Transformation, mas essa origem institucional não implica cessão de direitos
+patrimoniais sobre estes materiais.
 
-Para solicitações de uso ou licenciamento, entre em contato com a coordenação do projeto AX Academy --- Digital
-Transformation via IFAM/INOVA.
+Componentes de terceiros e conjuntos de dados externos permanecem sujeitos às
+licenças e aos termos de seus respectivos titulares.
+
+PERMISSÃO PARA REVISÃO CIENTÍFICA
+
+O titular autoriza, durante o processo de avaliação do manuscrito científico
+associado a este projeto:
+
+1. a hospedagem temporária de uma cópia anonimizada em serviço destinado à
+   revisão por pares;
+2. o acesso e o download dessa cópia pelos revisores e pela organização do
+   evento; e
+3. a execução e a reprodução local estritamente necessárias para verificar os
+   resultados relatados no manuscrito.
+
+Essa permissão é gratuita, não exclusiva e limitada à avaliação científica.
+Ela não autoriza exploração comercial, redistribuição fora do processo de
+revisão, publicação de trabalhos derivados nem remoção dos avisos aplicáveis.
+
+DEMAIS USOS
+
+Qualquer uso não abrangido pela permissão acima, incluindo distribuição,
+modificação, sublicenciamento ou uso comercial, depende de autorização prévia
+e expressa do titular.
