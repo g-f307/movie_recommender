@@ -26,6 +26,10 @@ O exportador usa uma lista permitida. `data/`, `datasets/`, `.env`, cache DVC,
 histórico Git, pacote do manuscrito e módulos com identidade do autor não entram
 no arquivo.
 
+Para compatibilidade com o Anonymous GitHub, nenhum membro pode exceder 8 MiB.
+O `matrix.manifest.json` é armazenado como `matrix.manifest.json.gz`; a análise
+descompacta o conteúdo e confere o hash do JSON original antes de utilizá-lo.
+
 ## Geração
 
 ```bash
@@ -78,6 +82,10 @@ Antes do upload em serviço anônimo:
 4. comparar os hashes das saídas;
 5. abrir o pacote sem autenticação em uma sessão privada;
 6. confirmar que título, descrição e URL não revelam autoria ou instituição.
+
+Na publicação por repositório, o ZIP deve ser extraído em um repositório privado
+dedicado. O arquivo ZIP não deve ser versionado, pois o serviço opera sobre os
+arquivos individuais do repositório.
 
 O endereço anônimo deve ser acrescentado ao manuscrito somente depois dessas
 verificações e sem prometer reconstrução dos dados restritos.

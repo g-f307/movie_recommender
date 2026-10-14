@@ -62,7 +62,8 @@ submission-package:
 		--output "$${OUTPUT_ROOT:-artifacts/submission_sac2027}" \
 		--checked-at "$${CHECKED_AT:-2026-10-01}" \
 		--forbidden-identifier Gabriel \
-		--forbidden-identifier gf307 \
+		--forbidden-identifier g-f307 \
+		--forbidden-identifier movie_recommender \
 		--forbidden-identifier "Instituto Federal do Amazonas" \
 		--forbidden-identifier "LG Electronics"
 
@@ -74,6 +75,7 @@ anonymous-artifact:
 		--selection results/v2_1/revision_2/reports/validation/0b1bcc4e1bd908b021949dea/selection.json \
 		--v1-derived-dir results/derived/specialized_v1 \
 		--forbidden-identifier Gabriel \
-		--forbidden-identifier gf307 \
+		--forbidden-identifier g-f307 \
+		--forbidden-identifier movie_recommender \
 		--forbidden-identifier "Instituto Federal do Amazonas" \
 		--forbidden-identifier "LG Electronics"

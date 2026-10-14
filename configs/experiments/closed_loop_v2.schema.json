@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/g-f307/movie_recommender/configs/experiments/closed_loop_v2.schema.json",
+  "$id": "urn:cinebot-ml:schema:closed-loop-v2",
   "title": "Movie Recommender closed-loop exposure v2",
   "type": "object",
   "additionalProperties": false,

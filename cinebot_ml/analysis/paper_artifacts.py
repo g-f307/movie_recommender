@@ -80,7 +80,7 @@ def _plot(path: Path, draw: Callable[[Any, Any], None]) -> None:
     figure, axis = plt.subplots(figsize=(6.4, height))
     draw(figure, axis)
     figure.tight_layout()
-    metadata = {"Creator": "movie_recommender", "Producer": "movie_recommender",
+    metadata = {"Creator": "anonymous-artifact", "Producer": "anonymous-artifact",
                 "CreationDate": None, "ModDate": None}
     figure.savefig(path.with_suffix(".pdf"), bbox_inches="tight", metadata=metadata)
     figure.savefig(path.with_suffix(".png"), dpi=300, bbox_inches="tight", metadata=metadata)
