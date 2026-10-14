@@ -271,18 +271,35 @@ def evaluate_external(
             f"movielens-100k:{user_id}".encode()
         ).hexdigest()[:16], "candidate_count": len(candidates),
             "relevant_test_items": len(relevance)}
+        rankings = {}
         for method in ("B0", "B4", "B5"):
             ranking = _rank(
                 method, candidates, movies, popularity, initial, incremental,
                 int(config["semantics"]["k"]),
             )
+            rankings[method] = ranking
             result[f"{method.lower()}_ndcg_at_5"] = ndcg_at_k(ranking, relevance, 5)
             recommended[method].update(ranking)
+        result["b5_profile_changed"] = any(
+            not math.isclose(initial.get(genre, 0.0), incremental.get(genre, 0.0))
+            for genre in set(initial) | set(incremental)
+        )
+        result["b5_candidate_scores_changed"] = any(
+            not math.isclose(
+                _profile_score(movies[movie_id], initial),
+                _profile_score(movies[movie_id], incremental),
+            )
+            for movie_id in candidates
+        )
+        result["b5_top_k_changed"] = rankings["B4"] != rankings["B5"]
         result["difference_b5_minus_b4"] = (
             result["b5_ndcg_at_5"] - result["b4_ndcg_at_5"]
         )
         result["difference_b5_minus_b0"] = (
             result["b5_ndcg_at_5"] - result["b0_ndcg_at_5"]
+        )
+        result["b5_ndcg_changed"] = not math.isclose(
+            result["b5_ndcg_at_5"], result["b4_ndcg_at_5"]
         )
         rows.append(result)
 
@@ -325,6 +342,20 @@ def evaluate_external(
         "unit_of_analysis": "anonymous_movielens_user",
         "k": 5,
         "eligible_users": len(rows),
+        "feedback_update_diagnostic": {
+            "users_with_profile_change": sum(
+                row["b5_profile_changed"] for row in rows
+            ),
+            "users_with_candidate_score_change": sum(
+                row["b5_candidate_scores_changed"] for row in rows
+            ),
+            "users_with_top_k_change": sum(
+                row["b5_top_k_changed"] for row in rows
+            ),
+            "users_with_ndcg_change": sum(
+                row["b5_ndcg_changed"] for row in rows
+            ),
+        },
         "contrasts": contrasts,
         "external_H1_decision": decision,
         "split": split_manifest,
