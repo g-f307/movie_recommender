@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/g-f307/movie_recommender/configs/experiments/execution_v2.schema.json",
+  "$id": "urn:cinebot-ml:schema:execution-v2",
   "title": "Movie Recommender isolated execution v2",
   "type": "object",
   "additionalProperties": false,

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/g-f307/movie_recommender/configs/agents/profile_observation_v2.schema.json",
+  "$id": "urn:cinebot-ml:schema:profile-observation-v2",
   "title": "Observed declared profile for execution v2",
   "type": "object",
   "additionalProperties": false,

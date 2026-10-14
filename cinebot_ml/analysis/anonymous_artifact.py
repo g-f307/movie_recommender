@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import argparse
+import gzip
 import json
 import os
 import tempfile
@@ -16,6 +17,10 @@ from .submission_package import validate_anonymity
 
 class AnonymousArtifactError(ValueError):
     """Raised when an anonymous artifact violates its integrity contract."""
+
+
+_ANONYMOUS_HOST_MAX_FILE_BYTES = 8 * 1024 * 1024
+_MANDATORY_FORBIDDEN_IDENTIFIERS = ("g-f307", "movie_recommender")
 
 
 def _archive_path(value: str | Path) -> str:
@@ -118,6 +123,7 @@ def build_anonymous_archive(
     generated_files: Mapping[str, str | bytes],
     metadata: Mapping[str, object],
     forbidden_identifiers: Iterable[str] = (),
+    max_member_bytes: int | None = None,
 ) -> dict[str, object]:
     """Create an atomic ZIP archive from an explicit allowlist of project files."""
     output_path = Path(output_path)
@@ -170,6 +176,17 @@ def build_anonymous_archive(
             for name, content in generated.items()
         }
     )
+    if max_member_bytes is not None:
+        oversized = {
+            name: item["bytes"]
+            for name, item in inventory.items()
+            if int(item["bytes"]) > max_member_bytes
+        }
+        if oversized:
+            raise AnonymousArtifactError(
+                "member size limit exceeded: "
+                + json.dumps(oversized, ensure_ascii=False, sort_keys=True)
+            )
     manifest: dict[str, object] = {
         "schema_version": "1.0",
         "anonymous": True,
@@ -179,6 +196,10 @@ def build_anonymous_archive(
     manifest_bytes = (
         json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     ).encode("utf-8")
+    if max_member_bytes is not None and len(manifest_bytes) > max_member_bytes:
+        raise AnonymousArtifactError(
+            "member size limit exceeded: artifact_manifest.json"
+        )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
@@ -411,7 +432,14 @@ def build_sac_reanalysis_archive(
     manifest_relative = execution_manifest.relative_to(project_root)
     selection_relative = selection_path.relative_to(project_root)
     generated_files = _sanitized_json_overrides(project_root, files)
-    files = tuple(path for path in files if path.as_posix() not in generated_files)
+    matrix_relative = execution_manifest.parent.relative_to(project_root) / "matrix.manifest.json"
+    matrix_name = matrix_relative.as_posix()
+    matrix_content = generated_files.pop(
+        matrix_name, (project_root / matrix_relative).read_bytes()
+    )
+    replaced_sources = set(generated_files) | {matrix_name}
+    files = tuple(path for path in files if path.as_posix() not in replaced_sources)
+    generated_files[f"{matrix_name}.gz"] = gzip.compress(matrix_content, mtime=0)
     generated_files.update(
         {
             "README.md": _artifact_readme(manifest_relative, selection_relative),
@@ -432,7 +460,11 @@ def build_sac_reanalysis_archive(
             "total_cells": total_cells,
             "requires_private_object_store": False,
         },
-        forbidden_identifiers=forbidden_identifiers,
+        forbidden_identifiers=(
+            *_MANDATORY_FORBIDDEN_IDENTIFIERS,
+            *tuple(forbidden_identifiers),
+        ),
+        max_member_bytes=_ANONYMOUS_HOST_MAX_FILE_BYTES,
     )
 
 

@@ -67,6 +67,22 @@ class AnonymousArtifactTests(unittest.TestCase):
 
             self.assertFalse(output.exists())
 
+    def test_rejects_archive_member_above_host_limit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "large.json"
+            source.write_text("123456789", encoding="utf-8")
+
+            with self.assertRaisesRegex(AnonymousArtifactError, "member size limit"):
+                build_anonymous_archive(
+                    root / "artifact.zip",
+                    project_root=root,
+                    files=(Path("large.json"),),
+                    generated_files={},
+                    metadata={"study": "movie-feedback"},
+                    max_member_bytes=8,
+                )
+
     def test_verification_rejects_an_archive_with_modified_evidence(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -207,6 +223,14 @@ class AnonymousArtifactTests(unittest.TestCase):
                 self.assertIn("verify_artifact.py", archive.namelist())
                 self.assertIn("LICENSE-REVIEW.md", archive.namelist())
                 self.assertNotIn("LICENSE", archive.namelist())
+                self.assertIn(
+                    "results/v2/manifests/execution/matrix.manifest.json.gz",
+                    archive.namelist(),
+                )
+                self.assertNotIn(
+                    "results/v2/manifests/execution/matrix.manifest.json",
+                    archive.namelist(),
+                )
                 self.assertNotIn("data/filmes.json", archive.namelist())
                 sanitized = archive.read(
                     "results/v2/reports/analysis/v2_analysis.json"
@@ -218,6 +242,44 @@ class AnonymousArtifactTests(unittest.TestCase):
                 self.assertEqual(
                     output_manifest["outputs"]["v2_analysis.json"]["sha256"],
                     hashlib.sha256(sanitized).hexdigest(),
+                )
+
+    def test_rejects_repository_identity_without_optional_cli_terms(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            files = {
+                "requirements-ci.txt": "numpy\n",
+                "cinebot_ml/__init__.py": "",
+                "configs/identity.schema.json": (
+                    '{"$id":"https://github.com/g-f307/movie_recommender/schema.json"}\n'
+                ),
+                "results/v2/manifests/execution/execution.manifest.json": json.dumps(
+                    {
+                        "status": "complete",
+                        "execution": {"protocol_version": "protocol-v2.1"},
+                        "matrix": {"matrix_id": "matrix-1", "total_cells": 0},
+                    }
+                ),
+                "results/v2/manifests/execution/matrix.manifest.json": "{}\n",
+                "results/v2/reports/analysis/v2_analysis.json": "{}\n",
+                "results/v2/reports/validation/selection.json": "{}\n",
+                "results/v1/derived/contrast.csv": "effect\n",
+            }
+            for relative, content in files.items():
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding="utf-8")
+
+            with self.assertRaisesRegex(AnonymousArtifactError, "sensitive content"):
+                build_sac_reanalysis_archive(
+                    root / "artifact.zip",
+                    project_root=root,
+                    execution_manifest=root
+                    / "results/v2/manifests/execution/execution.manifest.json",
+                    analysis_dir=root / "results/v2/reports/analysis",
+                    selection_path=root
+                    / "results/v2/reports/validation/selection.json",
+                    v1_derived_dir=root / "results/v1/derived",
                 )
 
 
