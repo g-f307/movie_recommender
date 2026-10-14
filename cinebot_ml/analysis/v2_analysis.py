@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gzip
 import hashlib
 import json
 import shutil
@@ -42,6 +43,17 @@ def _read_json(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise V2AnalysisError(f"Objeto JSON esperado em {path}.")
     return value
+
+
+def _read_compressed_json(path: Path) -> tuple[dict[str, Any], bytes]:
+    try:
+        raw = gzip.decompress(path.read_bytes())
+        value = json.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
+        raise V2AnalysisError(f"JSON v2 comprimido inválido em {path}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise V2AnalysisError(f"Objeto JSON esperado em {path}.")
+    return value, raw
 
 
 def _portable_source_path(path: Path) -> str:
@@ -116,11 +128,18 @@ def load_v2_records(manifest_path: Path) -> tuple[dict[str, Any], list[V2MetricR
         raise V2AnalysisError("Manifesto v2 não referencia uma matriz válida.")
     root = manifest_path.parent
     matrix_path = root / "matrix.manifest.json"
-    if root.name != matrix_info["matrix_id"] or not matrix_path.is_file():
+    compressed_matrix_path = root / "matrix.manifest.json.gz"
+    if root.name != matrix_info["matrix_id"] or not (
+        matrix_path.is_file() or compressed_matrix_path.is_file()
+    ):
         raise V2AnalysisError("Diretório ou manifesto da matriz v2 diverge da execução.")
-    if _sha256(matrix_path) != matrix_info.get("manifest_sha256"):
+    if matrix_path.is_file():
+        matrix_bytes = matrix_path.read_bytes()
+        matrix = _read_json(matrix_path)
+    else:
+        matrix, matrix_bytes = _read_compressed_json(compressed_matrix_path)
+    if hashlib.sha256(matrix_bytes).hexdigest() != matrix_info.get("manifest_sha256"):
         raise V2AnalysisError("Hash do manifesto da matriz v2 diverge da execução.")
-    matrix = _read_json(matrix_path)
     if (
         matrix.get("matrix_id") != matrix_info["matrix_id"]
         or matrix.get("total_cells") != matrix_info.get("total_cells")
